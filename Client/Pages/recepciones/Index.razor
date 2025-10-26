@@ -1,0 +1,118 @@
+﻿@page "/recepciones"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<h3>Recepciones</h3>
+
+<a href="/recepciones/create" class="btn btn-success mb-3">Crear Nueva Recepción</a>
+
+@if (cabeceras == null)
+{
+    <p>Cargando...</p>
+}
+else if (cabeceras.Length == 0)
+{
+    <p>No hay recepciones creadas.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Albarán</th>
+                <th>Proveedor</th>
+                <th>Estado</th>
+                <th>Fecha Creación</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var cab in cabeceras)
+            {
+                bool bloqueado = cab.Estado == 2;
+
+                <tr>
+                    <td>@cab.Albaran</td>
+                    <td>@cab.Proveedor</td>
+                    <td>@cab.Estado - @cab.DesEstado</td>
+                    <td>@cab.FCreacion.ToShortDateString()</td>
+                    <td>
+                        <a class="btn btn-sm btn-primary @(bloqueado ? "disabled" : "")"
+                           href="/recepciones/edit/@cab.Albaran">Editar</a>
+
+                        <button class="btn btn-sm btn-info ms-1"
+                                @onclick="() => Recepcionar(cab)"
+                                disabled="@(bloqueado)">
+                            Recepcionar
+                        </button>
+
+                        <button class="btn btn-sm btn-danger ms-1"
+                                @onclick="() => Eliminar(cab.Albaran)"
+                                disabled="@(bloqueado)">
+                            Eliminar
+                        </button>
+
+                        <button class="btn btn-sm btn-warning ms-1"
+                                @onclick="() => EnviarAICP(cab)"
+                                disabled="@(!bloqueado)">
+                            Enviar a ICP
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private RecepcionesCab[]? cabeceras;
+
+    protected override async Task OnInitializedAsync()
+    {
+        cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+    }
+
+    private void Recepcionar(RecepcionesCab cab)
+    {
+        // Si el estado no es 1, cambiamos a 1-SinLiberar
+        if (cab.Estado != 1)
+        {
+            cab.Estado = 1;
+            cab.DesEstado = "SinLiberar";
+            // Actualizar en el servidor
+            _ = Http.PutAsJsonAsync($"api/RecepcionesCab/{cab.Albaran}", cab);
+        }
+
+        // Ir a la página de líneas con el Albaran seleccionado
+        Nav.NavigateTo($"/recepcioneslin?albaran={cab.Albaran}");
+    }
+    private async Task EliminarCabecera(int albaran)
+    {
+        var confirm = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Eliminar el albarán {albaran}?");
+        if (!confirm) return;
+
+        await Http.DeleteAsync($"api/RecepcionesCab/{albaran}");
+        cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+        StateHasChanged();
+    }
+    private async Task Eliminar(int albaran)
+    {
+        var confirm = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Eliminar la recepción {albaran}?");
+        if (!confirm) return;
+
+        await Http.DeleteAsync($"api/RecepcionesCab/{albaran}");
+        cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+    }
+
+    private async Task EnviarAICP(RecepcionesCab cab)
+    {
+        cab.Estado = 3;
+        cab.DesEstado = "Enviado";
+        await Http.PutAsJsonAsync($"api/RecepcionesCab/{cab.Albaran}", cab);
+
+        // Refrescar la lista
+        cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+    }
+}

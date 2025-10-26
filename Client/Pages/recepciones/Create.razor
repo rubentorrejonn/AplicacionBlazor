@@ -1,0 +1,43 @@
+﻿@page "/recepciones/create"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<h3>Crear Recepción Cabecera</h3>
+
+<EditForm Model="nuevaCab" OnValidSubmit="CreateRecep">
+    <div class="mb-3">
+        <label>Proveedor</label>
+        <InputText class="form-control" @bind-Value="nuevaCab.Proveedor" />
+    </div>
+    <div class="mb-3">
+        <label>Estado</label>
+        <InputNumber class="form-control" @bind-Value="nuevaCab.Estado" disabled />
+    </div>
+    <div class="mb-3">
+        <label>Descripción Estado</label>
+        <InputText class="form-control" @bind-Value="nuevaCab.DesEstado" disabled />
+    </div>
+    <button type="submit" class="btn btn-primary">Crear</button>
+    <button class="btn btn-secondary" @onclick="Cancel">Cancelar</button>
+</EditForm>
+
+@code {
+    // Inicializamos con valores por defecto
+    private RecepcionesCab nuevaCab = new()
+    {
+        Proveedor = "MediaMarkt",
+        FCreacion = DateTime.Now,
+        FConfirmacion = DateTime.Now,
+        Estado = 0,
+        DesEstado = "SinRecepcionar"
+    };
+
+    private async Task CreateRecep()
+    {
+        await Http.PostAsJsonAsync("api/RecepcionesCab", nuevaCab);
+        Nav.NavigateTo("/recepciones");
+    }
+
+    private void Cancel() => Nav.NavigateTo("/recepciones");
+}

@@ -1,0 +1,66 @@
+﻿@page "/refpage"
+@using UltimateProyect.Shared.Models
+@using UltimateProyect.Client.Services
+@inject HttpClient Http
+@inject RecepcionService RecepcionService
+@inject IJSRuntime JSRuntime
+
+<h3>Referencias Disponibles</h3>
+
+@if (referencias == null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Referencia</th>
+                <th>Descripción</th>
+                <th>Precio</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var refe in referencias)
+        {
+                <tr>
+                    <td>@refe.Referencia</td>
+                    <td>@refe.DesReferencia</td>
+                    <td>@refe.Precio.ToString("C")</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning">
+                            Añadir
+                        </button>
+                        <button class="btn btn-sm btn-danger ms-1"
+                                @onclick="() => EliminarReferencia(refe.Referencia)">
+                            Eliminar
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<a href="/refpage/create" class="btn btn-success">Crear Nueva Referencia</a>
+
+@code {
+    private Referencias[]? referencias;
+
+    protected override async Task OnInitializedAsync()
+    {
+        referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
+    }
+
+    private async Task EliminarReferencia(string referencia)
+    {
+        var confirm = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Eliminar la referencia {referencia}?");
+        if (!confirm) return;
+
+        await Http.DeleteAsync($"api/Referencias/{referencia}");
+        referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
+        StateHasChanged();
+    }
+}

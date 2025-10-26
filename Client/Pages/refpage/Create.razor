@@ -1,0 +1,64 @@
+﻿@page "/refpage/create"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<h3>Crear Nueva Referencia</h3>
+
+<EditForm Model="NuevaReferencia" OnValidSubmit="CreateRef">
+    <div class="mb-3">
+        <label>Referencia</label>
+        <InputText class="form-control" @bind-Value="NuevaReferencia.Referencia" />
+    </div>
+    <div class="mb-3">
+        <label>Descripción</label>
+        <InputText class="form-control" @bind-Value="NuevaReferencia.DesReferencia" />
+    </div>
+    <div class="mb-3">
+        <label>Precio</label>
+        <InputNumber class="form-control" @bind-Value="NuevaReferencia.Precio" />
+    </div>
+
+    <!-- ¿Tiene número de serie? -->
+    <div class="mb-3">
+        <label for="numSerie" class="form-label">¿Tiene número de serie?</label>
+        <InputSelect class="form-select" id="numSerie" @bind-Value="NuevaReferencia.NSerie">
+            <option value="true">Sí</option>
+            <option value="false">No</option>
+        </InputSelect>
+    </div>
+
+    <!-- Longitud del número de serie -->
+    <div class="mb-3">
+        <label for="longSerie" class="form-label">Longitud número de serie</label>
+        @if (NuevaReferencia.NSerie == true)
+        {
+            <InputNumber id="longSerie" class="form-control" @bind-Value="NuevaReferencia.LongNSerie" />
+        }
+        else
+        {
+            <InputNumber id="longSerie" class="form-control" @bind-Value="NuevaReferencia.LongNSerie" disabled />
+        }
+    </div>
+
+    <button type="submit" class="btn btn-primary">Crear</button>
+    <button class="btn btn-secondary" @onclick="Cancel">Cancelar</button>
+</EditForm>
+
+@code {
+    private Referencias NuevaReferencia = new();
+
+    private async Task CreateRef()
+    {
+        // Si no tiene número de serie, asegura que LongNSerie sea null
+        if (NuevaReferencia.NSerie != true)
+        {
+            NuevaReferencia.LongNSerie = null;
+        }
+
+        await Http.PostAsJsonAsync("api/Referencias", NuevaReferencia);
+        Nav.NavigateTo("/refpage");
+    }
+
+    private void Cancel() => Nav.NavigateTo("/refpage");
+}
