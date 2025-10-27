@@ -25,12 +25,4 @@ public class Referencias
     [Column("OPERATIVO")]
     public bool? Operativo { get; set; }
 
-    [Column("RECEPCION")]
-    public bool? Recepcion { get; set; }
-
-    [Column("SELECCIONADO")]
-    public bool? Seleccionado { get; set; }
-
-    [Column("CANTIDAD")]
-    public int? Cantidad { get; set; }
 }

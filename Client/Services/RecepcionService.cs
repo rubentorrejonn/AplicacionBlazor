@@ -22,12 +22,21 @@ namespace UltimateProyect.Client.Services
             Carrito.Clear();
         }
 
-        public void AddOrIncrement(string referencia, string desReferencia, int cantidad = 1, int bien = 0, int mal = 0)
+        public void AddOrIncrement(
+            string referencia,
+            string desReferencia,
+            bool requiereNSerie,
+            int? longNSerie,
+            int cantidad = 1,
+            int bien = 0,
+            int mal = 0)
         {
-            if (CurrentAlbaran == null) throw new InvalidOperationException("Debe seleccionar un albarán primero.");
+            if (CurrentAlbaran == null)
+                throw new InvalidOperationException("Debe seleccionar un albarán primero.");
 
             if (Carrito.ContainsKey(referencia))
             {
+                // Solo actualizamos cantidades, no NSerie (ya está definido)
                 Carrito[referencia].Cantidad += cantidad;
                 Carrito[referencia].Bien = bien;
                 Carrito[referencia].Mal = mal;
@@ -40,11 +49,12 @@ namespace UltimateProyect.Client.Services
                     DesReferencia = desReferencia,
                     Cantidad = cantidad,
                     Bien = bien,
-                    Mal = mal
+                    Mal = mal,
+                    RequiereNSerie = requiereNSerie,
+                    LongNSerie = longNSerie
                 };
             }
         }
-
 
         public void Remove(string referencia)
         {
@@ -64,8 +74,14 @@ namespace UltimateProyect.Client.Services
                 Cantidad = item.Cantidad,
                 Bien = item.Bien,
                 Mal = item.Mal,
-                DesReferencia = item.DesReferencia
+                DesReferencia = item.DesReferencia,
+                RequiereNSerie = item.RequiereNSerie,
+                LongNSerie = item.LongNSerie,
+                NumerosSerieBien = item.NumerosSerieBien ?? new List<string>(),
+                NumerosSerieMal = item.NumerosSerieMal ?? new List<string>()
             }).ToList();
         }
+
     }
+
 }

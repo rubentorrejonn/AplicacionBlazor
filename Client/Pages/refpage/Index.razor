@@ -19,6 +19,8 @@ else
                 <th>Referencia</th>
                 <th>Descripción</th>
                 <th>Precio</th>
+                <th>¿Tiene Número de Seríe?</th>
+                <th>Longitud Numero de Serie</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -29,10 +31,10 @@ else
                     <td>@refe.Referencia</td>
                     <td>@refe.DesReferencia</td>
                     <td>@refe.Precio.ToString("C")</td>
+                    <td align="center">@(refe.NSerie == true ? "Sí" : "No")</td>
+                    <td align="center">@refe.LongNSerie</td>
                     <td>
-                        <button class="btn btn-sm btn-warning">
-                            Añadir
-                        </button>
+                        <a href="/refpage/edit/@refe.Referencia" class="btn btn-sm btn-warning">Modificar</a>
                         <button class="btn btn-sm btn-danger ms-1"
                                 @onclick="() => EliminarReferencia(refe.Referencia)">
                             Eliminar

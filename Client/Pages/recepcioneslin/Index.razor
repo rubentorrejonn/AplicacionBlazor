@@ -52,6 +52,52 @@ else
                             </button>
                         </td>
                     </tr>
+
+                    @if (item.RequiereNSerie)
+                    {
+                        <tr class="table-light">
+                            <td colspan="6">
+                                <h6>
+                                    Números de serie para @item.Referencia
+                                    @if (item.LongNSerie.HasValue)
+                                    {
+                                        <small class="text-muted"> (longitud esperada: @item.LongNSerie)</small>
+                                    }
+                                </h6>
+
+                                @if (item.Bien > 0)
+                                {
+                                    <div class="mb-2">
+                                        <label>Bien (@item.Bien unidades):</label>
+                                        <textarea value="@nsBienInputs.GetValueOrDefault(item.Referencia, "")"
+                                        @oninput="(e) => nsBienInputs[item.Referencia] = e.Value?.ToString() ?? string.Empty"
+                                        class="form-control"
+                                        rows="@(Math.Max(2, (item.Bien ?? 0) / 3))"
+                                        placeholder="Separe con comas o saltos de línea">
+                                        </textarea>
+                                    </div>
+                                }
+
+                                @if (item.Mal > 0)
+                                {
+                                    <div class="mb-2">
+                                        <label>Mal (@item.Mal unidades):</label>
+                                        <textarea value="@nsMalInputs.GetValueOrDefault(item.Referencia, "")"
+                                        @oninput="(e) => nsMalInputs[item.Referencia] = e.Value?.ToString() ?? string.Empty"
+                                        class="form-control"
+                                        rows="@(Math.Max(2, (item.Mal ?? 0) / 3))"
+                                        placeholder="Separe con comas o saltos de línea">
+                                        </textarea>
+                                    </div>
+                                }
+
+                                @if (erroresNSerie.TryGetValue(item.Referencia, out var error))
+                                {
+                                    <div class="text-danger small">@error</div>
+                                }
+                            </td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
@@ -59,7 +105,7 @@ else
         <button class="btn btn-secondary ms-1" @onclick="ClearCarrito">Limpiar carrito</button>
     }
 
-    <!-- Catálogo de referencias -->
+
     <h4 class="mt-4">Catálogo de Referencias</h4>
     @if (referencias == null)
     {
@@ -76,7 +122,7 @@ else
                         <small>@refe.DesReferencia</small>
                     </div>
                     <button class="btn btn-sm btn-primary"
-                            @onclick="() => AddToCarrito(refe)">
+                    @onclick="() => AddToCarrito(refe)">
                         <i class="bi bi-cart-plus"></i>
                     </button>
                 </div>
@@ -87,34 +133,30 @@ else
 
 @code {
     private Referencias[]? referencias;
+    private Dictionary<string, string> nsBienInputs = new();
+    private Dictionary<string, string> nsMalInputs = new();
+    private Dictionary<string, string> erroresNSerie = new();
 
     [Parameter][SupplyParameterFromQuery] public string? albaran { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        // Inicializar albarán
         if (!string.IsNullOrEmpty(albaran) && int.TryParse(albaran, out int albaranId))
         {
             RecepcionService.SetCurrentAlbaran(albaranId);
 
-            // Cargar líneas ya existentes y añadirlas al carrito
-            var lineasExistentes = await Http.GetFromJsonAsync<RecepcionLineaDto[]>($"api/RecepcionesLin/{albaranId}");
-            if (lineasExistentes != null)
-            {
-                foreach (var linea in lineasExistentes)
-                {
-                    RecepcionService.AddOrIncrement(linea.Referencia, linea.DesReferencia ?? "", linea.Cantidad ?? 1, linea.Bien ?? 0, linea.Mal ?? 0);
-                }
-            }
-        }
+        }   
 
-        // Cargar catálogo de referencias
         referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
     }
-
     private void AddToCarrito(Referencias refe)
     {
-        RecepcionService.AddOrIncrement(refe.Referencia, refe.DesReferencia, 1);
+        RecepcionService.AddOrIncrement(
+            refe.Referencia,
+            refe.DesReferencia,
+            refe.NSerie == true,
+            refe.LongNSerie
+        );
     }
 
     private void RemoveFromCarrito(string referencia)
@@ -129,6 +171,81 @@ else
 
     private async Task GuardarLineas()
     {
+        // Limpiar errores previos
+        erroresNSerie.Clear();
+
+        // Validar y procesar números de serie si la referencia los requiere
+        foreach (var item in RecepcionService.Carrito.Values.ToList())
+        {
+            if (item.RequiereNSerie)
+            {
+                var bienInput = nsBienInputs.GetValueOrDefault(item.Referencia, "");
+                var malInput = nsMalInputs.GetValueOrDefault(item.Referencia, "");
+
+                var bienList = ParseNSeries(bienInput);
+                var malList = ParseNSeries(malInput);
+                // Dentro de GuardarLineas, tras ParseNSeries:
+                if (item.RequiereNSerie && item.LongNSerie.HasValue)
+                {
+                    var longitudEsperada = item.LongNSerie.Value;
+
+                    foreach (var nserie in bienList)
+                    {
+                        if (nserie.Length != longitudEsperada)
+                        {
+                            erroresNSerie[item.Referencia] = $"Los números de serie para 'Bien' deben tener exactamente {longitudEsperada} caracteres. '{nserie}' tiene {nserie.Length}.";
+                            StateHasChanged();
+                            return;
+                        }
+                    }
+
+                    foreach (var nserie in malList)
+                    {
+                        if (nserie.Length != longitudEsperada)
+                        {
+                            erroresNSerie[item.Referencia] = $"Los números de serie para 'Mal' deben tener exactamente {longitudEsperada} caracteres. '{nserie}' tiene {nserie.Length}.";
+                            StateHasChanged();
+                            return;
+                        }
+                    }
+                }
+
+                // Validar cantidad de NSeries para Bien
+                if (item.Bien.HasValue && item.Bien > 0)
+                {
+                    if (bienList.Count != item.Bien)
+                    {
+                        erroresNSerie[item.Referencia] = $"Debe introducir exactamente {item.Bien} número(s) de serie para 'Bien'.";
+                        StateHasChanged();
+                        return;
+                    }
+                }
+                else
+                {
+                    bienList = new List<string>();
+                }
+
+                // Validar cantidad de NSeries para Mal
+                if (item.Mal.HasValue && item.Mal > 0)
+                {
+                    if (malList.Count != item.Mal)
+                    {
+                        erroresNSerie[item.Referencia] = $"Debe introducir exactamente {item.Mal} número(s) de serie para 'Mal'.";
+                        StateHasChanged();
+                        return;
+                    }
+                }
+                else
+                {
+                    malList = new List<string>();
+                }
+
+                // Asignar las listas al DTO
+                item.NumerosSerieBien = bienList;
+                item.NumerosSerieMal = malList;
+            }
+        }
+
         try
         {
             var lineas = RecepcionService.ToLineasDto();
@@ -153,7 +270,19 @@ else
         }
         catch (Exception ex)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
         }
+    }
+    private List<string> ParseNSeries(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return new List<string>();
+
+        return input
+            .Split(new[] { "\r\n", "\n", "," },
+                   StringSplitOptions.RemoveEmptyEntries)
+            .Select(s => s.Trim())
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToList();
     }
 }

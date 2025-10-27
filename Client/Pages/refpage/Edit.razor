@@ -1,0 +1,98 @@
+﻿@page "/refpage/edit/{Referencia}"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<h3>Editar Referencia: @Referencia</h3>
+
+@if (referenciaModel == null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    <EditForm Model="referenciaModel" OnValidSubmit="HandleSubmit">
+        <div class="mb-3">
+            <label class="form-label">Referencia (no editable)</label>
+            <InputText class="form-control" @bind-Value="referenciaModel.Referencia" disabled />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Descripción</label>
+            <InputText class="form-control" @bind-Value="referenciaModel.DesReferencia" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Precio</label>
+            <InputNumber class="form-control" @bind-Value="referenciaModel.Precio" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">¿Tiene número de serie?</label>
+            <InputSelect class="form-select" @bind-Value="referenciaModel.NSerie">
+                <option value="true">Sí</option>
+                <option value="false">No</option>
+            </InputSelect>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Longitud del número de serie</label>
+            @if (referenciaModel.NSerie == true)
+            {
+                <InputNumber class="form-control" @bind-Value="referenciaModel.LongNSerie" />
+            }
+            else
+            {
+                <InputNumber class="form-control" @bind-Value="referenciaModel.LongNSerie" disabled />
+            }
+        </div>
+
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <button class="btn btn-secondary ms-2" @onclick="Cancel">Cancelar</button>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public string? Referencia { get; set; }
+    private Referencias? referenciaModel;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(Referencia))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Referencia no especificada.");
+            Nav.NavigateTo("/refpage");
+            return;
+        }
+
+        referenciaModel = await Http.GetFromJsonAsync<Referencias>($"api/Referencias/{Referencia}");
+        if (referenciaModel == null)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Referencia no encontrada.");
+            Nav.NavigateTo("/refpage");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        try
+        {
+            // Asegurar que LongNSerie sea null si no tiene número de serie
+            if (referenciaModel!.NSerie != true)
+            {
+                referenciaModel.LongNSerie = null;
+            }
+
+            await Http.PutAsJsonAsync($"api/Referencias/{Referencia}", referenciaModel);
+            await JSRuntime.InvokeVoidAsync("alert", "Referencia actualizada correctamente.");
+            Nav.NavigateTo("/refpage");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+        }
+    }
+
+    private void Cancel() => Nav.NavigateTo("/refpage");
+}
