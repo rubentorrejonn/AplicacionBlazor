@@ -39,8 +39,10 @@ else
                     <td>@cab.Estado - @cab.DesEstado</td>
                     <td>@cab.FCreacion.ToShortDateString()</td>
                     <td>
+                        <!--
                         <a class="btn btn-sm btn-primary @(bloqueado ? "disabled" : "")"
-                           href="/recepciones/edit/@cab.Albaran">Editar</a>
+                                                   href="/recepciones/edit/@cab.Albaran">Editar</a>
+                        -->
 
                         <button class="btn btn-sm btn-info ms-1"
                                 @onclick="() => Recepcionar(cab)"

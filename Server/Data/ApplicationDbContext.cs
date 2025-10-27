@@ -19,49 +19,27 @@ public class ApplicationDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Clave primaria para Referencias
-        modelBuilder.Entity<Referencias>()
-            .HasKey(r => r.Referencia);
-
-
-        modelBuilder.Entity<NSeriesRecepciones>(entity =>
-        {
-            entity.HasKey(n => n.NSerie);
-            entity.Property(n => n.NSerie)
-                  .IsRequired()
-                  .HasColumnName("NSERIE");
-        });
-
-        modelBuilder.Entity<NSeriesRecepciones>(entity =>
-        {
-            entity.HasKey(n => n.NSerie);
-
-            entity.Property(n => n.NSerie)
-                .IsRequired()
-                .HasColumnName("NSERIE");
-
-            // Relación con Referencias
-            entity.HasOne<Referencias>()
-                .WithMany()
-                .HasForeignKey(n => n.Referencia)
-                .HasPrincipalKey(r => r.Referencia);
-        });
-
-        modelBuilder.Entity<Palets>()
-            .HasKey(p => p.Palet);
-
-        modelBuilder.Entity<NSeriesRecepciones>()
-           .HasKey(r => r.Referencia);
-
-        // Clave primaria para RecepcionesCab
+        // RecepcionesCab
         modelBuilder.Entity<RecepcionesCab>()
             .HasKey(r => r.Albaran);
 
-        // Clave primaria compuesta para líneas
+        // RecepcionesLin (clave compuesta)
         modelBuilder.Entity<RecepcionesLin>()
             .HasKey(rl => new { rl.Albaran, rl.Linea });
 
-        // Relaciones FK
+        // Referencias
+        modelBuilder.Entity<Referencias>()
+            .HasKey(r => r.Referencia);
+
+        // Palets (PK simple)
+        modelBuilder.Entity<Palets>()
+            .HasKey(p => p.Palet);
+
+        // NSeriesRecepciones
+        modelBuilder.Entity<NSeriesRecepciones>()
+            .HasKey(ns => ns.NSerie);
+
+
         modelBuilder.Entity<RecepcionesLin>()
             .HasOne<RecepcionesCab>()
             .WithMany()
@@ -73,15 +51,25 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(rl => rl.Referencia)
             .HasPrincipalKey(r => r.Referencia);
 
-        modelBuilder.Entity<Ubicaciones>()
-        .HasKey(u => u.Ubicacion);
+        modelBuilder.Entity<Palets>()
+            .HasOne<RecepcionesCab>()
+            .WithMany()
+            .HasForeignKey(p => p.Albaran);
 
         modelBuilder.Entity<Palets>()
-            .Property(p => p.Palet)
-    .       ValueGeneratedOnAdd(); // Esto indica que es IDENTITY
+            .HasOne<Referencias>()
+            .WithMany()
+            .HasForeignKey(p => p.Referencia)
+            .HasPrincipalKey(r => r.Referencia);
 
+        
         modelBuilder.Entity<NSeriesRecepciones>()
-            .Property(n => n.NSerie)
-            .HasColumnName("NSERIE");
+            .HasOne<Palets>()
+            .WithMany()
+            .HasForeignKey(ns => ns.Palet)
+            .HasPrincipalKey(p => p.Palet);
+
+        modelBuilder.Entity<Ubicaciones>()
+            .HasKey(u => u.Ubicacion);
     }
 }
