@@ -78,7 +78,7 @@ else
 
     private void Recepcionar(RecepcionesCab cab)
     {
-        // Si el estado no es 1, cambiamos a 1-SinLiberar
+        
         if (cab.Estado != 1)
         {
             cab.Estado = 1;
@@ -87,7 +87,6 @@ else
             _ = Http.PutAsJsonAsync($"api/RecepcionesCab/{cab.Albaran}", cab);
         }
 
-        // Ir a la página de líneas con el Albaran seleccionado
         Nav.NavigateTo($"/recepcioneslin?albaran={cab.Albaran}");
     }
     private async Task EliminarCabecera(int albaran)

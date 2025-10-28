@@ -1,0 +1,53 @@
+﻿@page "/icp"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<h3>Albaranes Enviados a ICP</h3>
+
+@if (albaranes == null)
+{
+    <p>Cargando...</p>
+}
+else if (!albaranes.Any())
+{
+    <p>No hay albaranes enviados a ICP.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Albarán</th>
+                <th>Proveedor</th>
+                <th>Fecha</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var a in albaranes)
+            {
+                <tr>
+                    <td>@a.Albaran</td>
+                    <td>@a.Proveedor</td>
+                    <td>@a.FCreacion.ToShortDateString()</td>
+                    <td>
+                        <a href="/icp/detalle?albaran=@a.Albaran" class="btn btn-sm btn-primary">
+                            Detallar
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private RecepcionesCab[]? albaranes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var todos = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+        albaranes = todos?.Where(x => x.Estado == 3).ToArray();
+    }
+}

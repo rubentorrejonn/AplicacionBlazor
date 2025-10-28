@@ -72,16 +72,15 @@ namespace UltimateProyect.Client.Services
                 Linea = index + 1,
                 Referencia = item.Referencia,
                 Cantidad = item.Cantidad,
-                Bien = item.Bien,
-                Mal = item.Mal,
+                // Bien y Mal se ignoran en la API → no los enviamos (o los dejamos en 0)
+                Bien = 0,
+                Mal = 0,
                 DesReferencia = item.DesReferencia,
-                RequiereNSerie = item.RequiereNSerie,
-                LongNSerie = item.LongNSerie,
-                NumerosSerieBien = item.NumerosSerieBien ?? new List<string>(),
-                NumerosSerieMal = item.NumerosSerieMal ?? new List<string>()
+                RequiereNSerie = false, // No relevante aquí
+                LongNSerie = null,
+                NumerosSerieBien = new(),
+                NumerosSerieMal = new()
             }).ToList();
         }
-
     }
-
 }

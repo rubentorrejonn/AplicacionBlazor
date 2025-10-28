@@ -1,0 +1,192 @@
+﻿@page "/icp/detalle"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<h3>Detallar Albarán @Albaran para ICP</h3>
+
+@if (lineas == null)
+{
+    <p>Cargando...</p>
+}
+else if (!lineas.Any())
+{
+    <p>No hay líneas.</p>
+}
+else
+{
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Ref</th>
+                <th>Descripción</th>
+                <th>Cantidad</th>
+                <th>Bien</th>
+                <th>Mal</th>
+                @if (lineas.Any(l => l.RequiereNSerie))
+                {
+                    <th>Números de Serie</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in lineas)
+            {
+                <tr>
+                    <td>@item.Referencia</td>
+                    <td>@item.DesReferencia</td>
+                    <td>@item.Cantidad</td>
+                    <td>
+                        <InputNumber class="form-control" @bind-Value="item.Bien" min="0" max="@(item.Cantidad)" />
+                    </td>
+                    <td>
+                        <InputNumber class="form-control" @bind-Value="item.Mal" min="0" max="@(item.Cantidad)" />
+                    </td>
+                    @if (item.RequiereNSerie)
+                    {
+                        <td>
+                            @if (item.LongNSerie.HasValue)
+                            {
+                                <small class="text-muted mb-2 d-block">Longitud esperada: @item.LongNSerie caracteres</small>
+                            }
+                            @if (item.Bien > 0)
+                            {
+                                <div class="mb-2">
+                                    <label>Bien (@item.Bien):</label>
+                                    <textarea @oninput="(e) => nsBien[item.Referencia] = e.Value?.ToString() ?? string.Empty"
+                                              class="form-control" rows="2">@nsBien.GetValueOrDefault(item.Referencia, "")</textarea>
+                                </div>
+                            }
+                            @if (item.Mal > 0)
+                            {
+                                <div class="mb-2">
+                                    <label>Mal (@item.Mal):</label>
+                                    <textarea @oninput="(e) => nsMal[item.Referencia] = e.Value?.ToString() ?? string.Empty"
+                                              class="form-control" rows="2">@nsMal.GetValueOrDefault(item.Referencia, "")</textarea>
+                                </div>
+                            }
+                            @if (errores.TryGetValue(item.Referencia, out var err))
+                            {
+                                <div class="text-danger">@err</div>
+                            }
+                        </td>
+                    }
+                    else
+                    {
+                        <td></td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button class="btn btn-success" @onclick="Confirmar">Confirmar y Generar Palets</button>
+    <button class="btn btn-secondary ms-2" @onclick="GoToIcp">Cancelar</button>
+}
+
+@code {
+    private void GoToIcp() => Nav.NavigateTo("/icp");
+    [Parameter][SupplyParameterFromQuery] public string? albaran { get; set; }
+    private int Albaran;
+    private List<RecepcionLineaDto> lineas = new();
+    private Dictionary<string, string> nsBien = new();
+    private Dictionary<string, string> nsMal = new();
+    private Dictionary<string, string> errores = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(albaran) || !int.TryParse(albaran, out Albaran))
+        {
+            Nav.NavigateTo("/icp");
+            return;
+        }
+
+        // Cargar líneas del albarán
+        var rawLineas = await Http.GetFromJsonAsync<RecepcionLineaDto[]>($"api/RecepcionesLin/{Albaran}");
+        if (rawLineas == null) { lineas = new(); return; }
+
+        // Cargar referencias para saber si requieren NSerie
+        var referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
+        var refDict = referencias?.ToDictionary(r => r.Referencia, r => r) ?? new();
+
+        lineas = rawLineas.Select(l => new RecepcionLineaDto
+        {
+            Albaran = l.Albaran,
+            Linea = l.Linea,
+            Referencia = l.Referencia,
+            Cantidad = l.Cantidad,
+            Bien = l.Cantidad, // por defecto todo bien
+            Mal = 0,
+            DesReferencia = refDict.GetValueOrDefault(l.Referencia)?.DesReferencia ?? "DESC",
+            RequiereNSerie = refDict.GetValueOrDefault(l.Referencia)?.NSerie == true,
+            LongNSerie = refDict.GetValueOrDefault(l.Referencia)?.LongNSerie
+        }).ToList();
+    }
+
+    private List<string> Parse(string input) =>
+        string.IsNullOrWhiteSpace(input)
+            ? new()
+            : input.Split(new[] { "\r\n", "\n", "," }, StringSplitOptions.RemoveEmptyEntries)
+                   .Select(s => s.Trim())
+                   .Where(s => !string.IsNullOrEmpty(s))
+                   .ToList();
+
+    private async Task Confirmar()
+    {
+        errores.Clear();
+
+        foreach (var item in lineas)
+        {
+            if (item.Bien + item.Mal != item.Cantidad)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Bien + Mal debe sumar {item.Cantidad} en {item.Referencia}");
+                return;
+            }
+
+            if (item.RequiereNSerie)
+            {
+                var bienList = Parse(nsBien.GetValueOrDefault(item.Referencia, ""));
+                var malList = Parse(nsMal.GetValueOrDefault(item.Referencia, ""));
+                var total = bienList.Count + malList.Count;
+                var esperado = item.Bien + item.Mal;
+
+                if (total != esperado)
+                {
+                    errores[item.Referencia] = $"Se esperaban {esperado} números de serie.";
+                    StateHasChanged();
+                    return;
+                }
+
+                if (item.LongNSerie.HasValue)
+                {
+                    var len = item.LongNSerie.Value;
+                    foreach (var n in bienList.Concat(malList))
+                    {
+                        if (n.Length != len)
+                        {
+                            errores[item.Referencia] = $"Longitud inválida en NSerie '{n}' (esperado: {len})";
+                            StateHasChanged();
+                            return;
+                        }
+                    }
+                }
+
+                item.NumerosSerieBien = bienList;
+                item.NumerosSerieMal = malList;
+            }
+        }
+
+        try
+        {
+            // 🔥 Llamamos al nuevo endpoint (ver abajo)
+            await Http.PutAsJsonAsync($"api/RecepcionesLin/confirmar-icp/{Albaran}", lineas);
+            await JSRuntime.InvokeVoidAsync("alert", "Palets generados y recepción confirmada.");
+            Nav.NavigateTo("/icp");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+}

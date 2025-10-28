@@ -30,9 +30,12 @@ public class RecepcionesLinController : ControllerBase
                       Linea = lin.Linea,
                       Referencia = lin.Referencia,
                       Cantidad = lin.Cantidad,
-                      Bien = lin.Bien,
-                      Mal = lin.Mal,
-                      DesReferencia = refe.DesReferencia
+                      // Bien y Mal ya no vienen de la BD → se inicializan en la UI
+                      Bien = 0,
+                      Mal = 0,
+                      DesReferencia = refe.DesReferencia,
+                      RequiereNSerie = refe.NSerie == true,
+                      LongNSerie = refe.LongNSerie
                   })
             .OrderBy(l => l.Linea)
             .ToListAsync();
@@ -64,7 +67,6 @@ public class RecepcionesLinController : ControllerBase
 
         try
         {
-            // 1. Guardar líneas (con cálculo seguro de Linea)
             var maxLinea = await _context.Recepciones_Lin
                 .Where(l => l.Albaran == albaran)
                 .MaxAsync(l => (int?)l.Linea) ?? 0;
@@ -74,116 +76,55 @@ public class RecepcionesLinController : ControllerBase
                 Albaran = dto.Albaran,
                 Linea = maxLinea + index + 1,
                 Referencia = dto.Referencia,
-                Cantidad = dto.Cantidad ?? 0,
-                Bien = dto.Bien ?? 0,
-                Mal = dto.Mal ?? 0
+                Cantidad = dto.Cantidad ?? 0
+                // ⚠️ Sin Bien, sin Mal
             }).ToList();
 
             _context.Recepciones_Lin.AddRange(entidadesLin);
             await _context.SaveChangesAsync();
 
-            // 2. Generar palets y guardarlos
-            var paletsPorLinea = new List<(RecepcionLineaDto Dto, List<Palets> Palets)>();
-            foreach (var dto in lineasDto)
+            // Generar palets TEMPORALES (solo para tener stock, todos como "Bien" por ahora)
+            var palets = new List<Palets>();
+            foreach (var lin in entidadesLin)
             {
-                var palets = new List<Palets>();
-
-                // Palets para Bien
-                if (dto.Bien > 0)
+                var unidades = lin.Cantidad;
+                while (unidades > 0)
                 {
-                    var unidades = dto.Bien.Value;
-                    while (unidades > 0)
+                    var cant = Math.Min(unidades, 1000);
+                    palets.Add(new Palets
                     {
-                        var cant = Math.Min(unidades, 1000);
-                        palets.Add(new Palets
-                        {
-                            Referencia = dto.Referencia,
-                            Cantidad = cant,
-                            Albaran = dto.Albaran,
-                            Ubicacion = "UBI-1",
-                            Estado = 1,
-                            FInsert = DateTime.Now
-                        });
-                        unidades -= cant;
-                    }
-                }
-
-                // Palets para Mal
-                if (dto.Mal > 0)
-                {
-                    var unidades = dto.Mal.Value;
-                    while (unidades > 0)
-                    {
-                        var cant = Math.Min(unidades, 1000);
-                        palets.Add(new Palets
-                        {
-                            Referencia = dto.Referencia,
-                            Cantidad = cant,
-                            Albaran = dto.Albaran,
-                            Ubicacion = "UBI-1",
-                            Estado = 2,
-                            FInsert = DateTime.Now
-                        });
-                        unidades -= cant;
-                    }
-                }
-
-                paletsPorLinea.Add((dto, palets));
-                _context.Palets.AddRange(palets);
-            }
-
-            await _context.SaveChangesAsync(); //
-
-            // 3. Guardar números de serie (con Palet real)
-            foreach (var (dto, palets) in paletsPorLinea)
-            {
-                int idx = 0;
-
-                // Bien
-                if (dto.NumerosSerieBien?.Any() == true)
-                {
-                    foreach (var nserie in dto.NumerosSerieBien)
-                    {
-                        _context.NSeries_Recepciones.Add(new NSeriesRecepciones
-                        {
-                            NSerie = nserie,
-                            Albaran = dto.Albaran,
-                            Palet = palets[idx].Palet,
-                            Referencia = dto.Referencia,
-                            FCreacion = DateTime.Now
-                        });
-                        idx++;
-                    }
-                }
-
-                // Mal
-                if (dto.NumerosSerieMal?.Any() == true)
-                {
-                    foreach (var nserie in dto.NumerosSerieMal)
-                    {
-                        _context.NSeries_Recepciones.Add(new NSeriesRecepciones
-                        {
-                            NSerie = nserie,
-                            Albaran = dto.Albaran,
-                            Palet = palets[idx].Palet,
-                            Referencia = dto.Referencia,
-                            FCreacion = DateTime.Now
-                        });
-                        idx++;
-                    }
+                        Referencia = lin.Referencia,
+                        Cantidad = cant,
+                        Albaran = lin.Albaran,
+                        Ubicacion = "UBI-1",
+                        Estado = 1, // temporal: todo bien
+                        FInsert = DateTime.Now
+                    });
+                    unidades -= cant;
                 }
             }
 
+            _context.Palets.AddRange(palets);
             await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
 
+            // Actualizar estado a "Recepcionado"
+            var cab = await _context.Recepciones_Cab.FindAsync(albaran);
+            if (cab != null)
+            {
+                cab.Estado = 2;
+                cab.DesEstado = "Recepcionado";
+                _context.Update(cab);
+                await _context.SaveChangesAsync();
+            }
+
+            await transaction.CommitAsync();
             return NoContent();
         }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
             Console.WriteLine($"Error: {ex}");
-            return StatusCode(500, "Error interno al procesar la recepción.");
+            return StatusCode(500, "Error al crear recepción.");
         }
     }
 
@@ -199,5 +140,170 @@ public class RecepcionesLinController : ControllerBase
         _context.Recepciones_Lin.RemoveRange(lineas);
         await _context.SaveChangesAsync();
         return NoContent();
+    }
+    [HttpPut("confirmar-icp/{albaran}")]
+    public async Task<IActionResult> ConfirmarIcp(int albaran, List<RecepcionLineaDto> lineasDto)
+    {
+        if (lineasDto == null || !lineasDto.Any())
+            return BadRequest("No se proporcionaron líneas.");
+
+        var cabecera = await _context.Recepciones_Cab.FindAsync(albaran);
+        if (cabecera == null)
+            return NotFound("Albarán no encontrado.");
+
+        if (cabecera.Estado != 3)
+            return BadRequest("Solo se puede confirmar un albarán en estado 'Enviado a ICP'.");
+
+        if (lineasDto.Any(l => l.Albaran != albaran))
+            return BadRequest("Todas las líneas deben pertenecer al mismo albarán.");
+
+        var referencias = lineasDto.Select(l => l.Referencia).Distinct().ToList();
+        var referenciasValidas = await _context.Referencias
+            .Where(r => referencias.Contains(r.Referencia))
+            .ToDictionaryAsync(r => r.Referencia, r => r);
+
+        var referenciasInvalidas = referencias.Except(referenciasValidas.Keys).ToList();
+        if (referenciasInvalidas.Any())
+            return BadRequest($"Referencias no válidas: {string.Join(", ", referenciasInvalidas)}");
+
+        // Validar que cada línea exista en la base de datos (solo por Referencia y Cantidad)
+        var lineasExistentes = await _context.Recepciones_Lin
+            .Where(l => l.Albaran == albaran)
+            .ToDictionaryAsync(l => l.Linea, l => l);
+
+        foreach (var dto in lineasDto)
+        {
+            if (!lineasExistentes.TryGetValue(dto.Linea, out var lineaDb))
+                return BadRequest($"Línea {dto.Linea} no encontrada para el albarán {albaran}.");
+
+            if (lineaDb.Referencia != dto.Referencia)
+                return BadRequest($"La referencia de la línea {dto.Linea} no coincide con la registrada.");
+
+            if (dto.Bien + dto.Mal != lineaDb.Cantidad)
+                return BadRequest($"La suma de Bien ({dto.Bien}) + Mal ({dto.Mal}) debe ser igual a la cantidad original ({lineaDb.Cantidad}) en la línea {dto.Linea}.");
+        }
+
+        using var transaction = await _context.Database.BeginTransactionAsync();
+
+        try
+        {
+            // 1. Eliminar palets anteriores del albarán
+            var paletsAnteriores = await _context.Palets.Where(p => p.Albaran == albaran).ToListAsync();
+            _context.Palets.RemoveRange(paletsAnteriores);
+            await _context.SaveChangesAsync();
+
+            // 2. Crear nuevos palets según Bien/Mal de la UI
+            var nuevosPalets = new List<Palets>();
+            foreach (var dto in lineasDto)
+            {
+                var refData = referenciasValidas[dto.Referencia];
+
+                // Palets para Bien
+                if (dto.Bien > 0)
+                {
+                    var unidades = dto.Bien.Value;
+                    while (unidades > 0)
+                    {
+                        var cant = Math.Min(unidades, 1000);
+                        nuevosPalets.Add(new Palets
+                        {
+                            Referencia = dto.Referencia,
+                            Cantidad = cant,
+                            Albaran = albaran,
+                            Ubicacion = "UBI-1",
+                            Estado = 1, // Bien
+                            FInsert = DateTime.Now
+                        });
+                        unidades -= cant;
+                    }
+                }
+
+                // Palets para Mal
+                if (dto.Mal > 0)
+                {
+                    var unidades = dto.Mal.Value;
+                    while (unidades > 0)
+                    {
+                        var cant = Math.Min(unidades, 1000);
+                        nuevosPalets.Add(new Palets
+                        {
+                            Referencia = dto.Referencia,
+                            Cantidad = cant,
+                            Albaran = albaran,
+                            Ubicacion = "UBI-1",
+                            Estado = 2, // Mal
+                            FInsert = DateTime.Now
+                        });
+                        unidades -= cant;
+                    }
+                }
+            }
+
+            _context.Palets.AddRange(nuevosPalets);
+            await _context.SaveChangesAsync();
+
+            // 3. Guardar números de serie si la referencia los requiere
+            foreach (var dto in lineasDto)
+            {
+                var refData = referenciasValidas[dto.Referencia];
+                if (!refData.NSerie.HasValue || !refData.NSerie.Value)
+                    continue;
+
+                var paletsDeEstaRef = nuevosPalets
+                    .Where(p => p.Referencia == dto.Referencia)
+                    .OrderBy(p => p.Palet)
+                    .ToList();
+
+                var todosNSeries = dto.NumerosSerieBien.Concat(dto.NumerosSerieMal).ToList();
+                var esperado = (dto.Bien ?? 0) + (dto.Mal ?? 0);
+
+                if (todosNSeries.Count != esperado)
+                    return BadRequest($"Se esperaban {esperado} números de serie para la referencia {dto.Referencia}, pero se proporcionaron {todosNSeries.Count}.");
+
+                if (refData.LongNSerie.HasValue)
+                {
+                    var longitudEsperada = refData.LongNSerie.Value;
+                    foreach (var nserie in todosNSeries)
+                    {
+                        if (string.IsNullOrEmpty(nserie))
+                            return BadRequest("Se proporcionó un número de serie vacío.");
+
+                        if (nserie.Length != longitudEsperada)
+                            return BadRequest($"El número de serie '{nserie}' tiene {nserie.Length} caracteres, pero se esperaban {longitudEsperada}.");
+                    }
+                }
+
+                // Asignar cada número de serie a un palet (round-robin)
+                for (int i = 0; i < todosNSeries.Count; i++)
+                {
+                    var paletAsignado = paletsDeEstaRef[i % paletsDeEstaRef.Count];
+                    _context.NSeries_Recepciones.Add(new NSeriesRecepciones
+                    {
+                        NSerie = todosNSeries[i],
+                        Albaran = albaran,
+                        Palet = paletAsignado.Palet,
+                        Referencia = dto.Referencia,
+                        FCreacion = DateTime.Now
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            // 4. Actualizar estado de la cabecera a "Confirmado"
+            cabecera.Estado = 4;
+            cabecera.DesEstado = "Confirmado";
+            _context.Recepciones_Cab.Update(cabecera);
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            Console.WriteLine($"Error en ConfirmarIcp: {ex}");
+            return StatusCode(500, "Error interno al confirmar la recepción en ICP.");
+        }
     }
 }

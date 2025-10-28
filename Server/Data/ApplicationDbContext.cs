@@ -11,11 +11,14 @@ public class ApplicationDbContext : DbContext
     }
 
     public DbSet<RecepcionesCab> Recepciones_Cab { get; set; }
+    public DbSet<OrdenSalidaCab>Orden_Salida_Cab { get; set; }
     public DbSet<RecepcionesLin> Recepciones_Lin { get; set; }
+    public DbSet<OrdenSalidaLin> Orden_Salida_Lin { get; set; }
     public DbSet<Referencias> Referencias { get; set; }
     public DbSet<Ubicaciones> Ubicaciones { get; set; }
     public DbSet<Palets> Palets { get; set; }
     public DbSet<NSeriesRecepciones> NSeries_Recepciones { get; set; }
+    public DbSet<NSeriesSeguimiento> NSeries_Seguimientos { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,10 +38,23 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Palets>()
             .HasKey(p => p.Palet);
 
+        modelBuilder.Entity<NSeriesSeguimiento>()
+            .HasKey(nss => nss.NSerie);
+
         // NSeriesRecepciones
         modelBuilder.Entity<NSeriesRecepciones>()
             .HasKey(ns => ns.NSerie);
 
+        modelBuilder.Entity<OrdenSalidaCab>()
+            .HasKey(osc => osc.Peticion);
+
+        modelBuilder.Entity<OrdenSalidaLin>()
+            .HasKey(osl => new { osl.Peticion, osl.Linea });
+
+        modelBuilder.Entity<OrdenSalidaLin>()
+            .HasOne<OrdenSalidaCab>()
+            .WithMany()
+            .HasForeignKey(osc => osc.Peticion);
 
         modelBuilder.Entity<RecepcionesLin>()
             .HasOne<RecepcionesCab>()

@@ -1,0 +1,74 @@
+﻿@page "/salidacab"
+@using UltimateProyect.Shared.Models;
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+
+<h3>Salidas Cab</h3>
+<a href="/salidacab/create" class="btn btn-success mb-3">Crear Nueva Salida</a>
+@if(salidaCab == null)
+{
+    <p>Cargando...</p>
+}
+else if(salidaCab.Length == 0)
+{
+    <p>No hay cabeceras creadas</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Nombre Cliente</th>
+                <th>Dirección Entrega</th>
+                <th>Codigo Postal</th>
+                <th>Poblacion</th>
+                <th>Provincia</th>
+                <th>Telefono</th>
+                <th>Fecha Creacion</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach(var scab in salidaCab)
+            {
+                <tr>
+                    <td>@scab.NombreCliente</td>
+                    <td>@scab.DireccionEntrega</td>
+                    <td>@scab.CodigoPostal</td>
+                    <td>@scab.Poblacion</td>
+                    <td>@scab.Provincia</td>
+                    <td>@scab.Telefono</td>
+                    <td>@scab.FCreacion.ToShortDateString()</td>
+                    <td>@scab.Estado</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+
+@code {
+    private OrdenSalidaCab[]? salidaCab;
+    protected override async Task OnInitializedAsync()
+    {
+        salidaCab = await Http.GetFromJsonAsync<OrdenSalidaCab[]>("api/ordensalidacab");
+    }
+    private void OrdenSalida(OrdenSalidaCab salida)
+    {
+        if(salida.Estado != 1)
+        {
+            salida.Estado = 1;
+            _= Http.PutAsJsonAsync($"api/ordensalidacab={salida.Peticion}", salida);
+        }
+    }
+    private async Task EliminarPeticion(int peticion)
+    {
+        var confirm = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Eliminar la petición {peticion}?");
+        if (!confirm) return;
+
+        await Http.DeleteAsync($"api/ordensalidacab/{peticion}");
+        salidaCab = await Http.GetFromJsonAsync<OrdenSalidaCab[]>("api/ordensalidacab");
+    }
+}

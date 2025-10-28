@@ -7,14 +7,14 @@ using System.Threading.Tasks;
 
 namespace UltimateProyect.Shared.Models
 {
-    public class RecepcionesLin
+    public class OrdenSalidaLin
     {
-        [Column("ALBARAN")]
-        public int Albaran {  get; set; }
+        [Column("PETICION")]
+        public int Peticion {  get; set; }
         [Column("LINEA")]
         public int Linea { get; set; }
         [Column("REFERENCIA")]
-        public string Referencia { get; set; } = null!;
+        public string Referencia { get; set; }
         [Column("CANTIDAD")]
         public int Cantidad { get; set; }
     }

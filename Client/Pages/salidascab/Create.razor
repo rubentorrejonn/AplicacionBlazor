@@ -1,0 +1,51 @@
+﻿@page "/salidacab/create"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<h3>Crear Cabecera de Salida</h3>
+<EditForm Model="nuevaOrdenCab" OnValidSubmit="CreateOrden">
+    <div class="mb-3">
+        <label>Nombre Cliente</label>
+        <InputText class="form-control" @bind-Value="nuevaOrdenCab.NombreCliente" disabled/>
+    </div>
+    <div class="mb-3">
+        <label>Dirección de Entrega</label>
+        <InputText class="form-control" @bind-Value="nuevaOrdenCab.DireccionEntrega"/>
+    </div>
+    <div class="mb-3">
+        <label>Código Postal</label>
+        <InputNumber class="form-control" @bind-Value="nuevaOrdenCab.CodigoPostal"/>
+    </div>
+    <div class="mb-3">
+        <label>Población</label>
+        <InputText class="form-control" @bind-Value="nuevaOrdenCab.Poblacion"/>
+    </div>
+    <div class="mb-3">
+        <label>Provincia</label>
+        <InputText class="form-control" @bind-Value="nuevaOrdenCab.Provincia"/>
+    </div>
+    <div class="mb-3">
+        <label>Telefono</label>
+        <InputText class="form-control" @bind-Value="nuevaOrdenCab.Telefono"/>
+        <ValidationMessage for= "@(()=> nuevaOrdenCab.Telefono)"/>
+    </div>
+<button class="btn btn-primary" type="submit">Crear Cabecera</button>
+<button class="btn btn-danger" @onclick="Cancel">Cancelar</button>
+</EditForm>
+
+@code {
+    private OrdenSalidaCab nuevaOrdenCab = new()
+    {
+        NombreCliente = "MediaMarkt",
+        FCreacion = DateTime.Now,
+        Estado = 0
+    };
+
+    private async Task CreateOrden()
+    {
+        await Http.PostAsJsonAsync("api/ordensalidacab", nuevaOrdenCab);
+        Nav.NavigateTo("/salidacab");
+    }
+    private void Cancel() => Nav.NavigateTo("/salidacab");
+}

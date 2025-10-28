@@ -26,10 +26,10 @@ public class ReferenciasController : ControllerBase
         }
         catch (Exception ex)
         {
-            // 🔥 Imprime el error REAL en la consola del servidor
+            
             Console.WriteLine("🚨 ERROR EN REFERENCIAS:");
             Console.WriteLine(ex.InnerException?.Message ?? ex.Message);
-            throw; // O devuelve StatusCode(500)
+            throw; 
         }
     }
 
