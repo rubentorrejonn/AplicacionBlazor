@@ -11,11 +11,11 @@ namespace UltimateProyect.Shared.Models
     {
         //PK
         [Column("UBICACION")]
-        public string Ubicacion { get; set; }
+        public string Ubicacion { get; set; } = null!;
         [Column("DES_UBICACION")]
-        public string DesUbicacion { get; set; }
+        public string DesUbicacion { get; set; } = null!;
         [Column("CALLE")]
-        public string Calle { get; set; }
+        public string Calle { get; set; } = null!;
         [Column("POSICION")]
         public int Posicion { get; set; }
     }

@@ -6,6 +6,20 @@
 
 <h3>Detallar Albarán @Albaran para ICP</h3>
 
+<div class="form-group mb-3">
+    <label for="ubicacionSelect">Selecciona Ubicación</label>
+    <InputSelect @bind-Value="ubicacionSeleccionada" class="form-control">
+        <option value="" disabled selected>--Selecciona una ubicación--</option>
+        @if(ubicaciones != null)
+        {
+            @foreach (var ubi in ubicaciones)
+            {
+                <option value="@ubi.Ubicacion">@ubi.Ubicacion (@ubi.DesUbicacion)</option>
+            }   
+        }
+    </InputSelect>
+</div>
+
 @if (lineas == null)
 {
     <p>Cargando...</p>
@@ -55,7 +69,7 @@ else
                                 <div class="mb-2">
                                     <label>Bien (@item.Bien):</label>
                                     <textarea @oninput="(e) => nsBien[item.Referencia] = e.Value?.ToString() ?? string.Empty"
-                                              class="form-control" rows="2">@nsBien.GetValueOrDefault(item.Referencia, "")</textarea>
+                                    class="form-control" rows="2">@nsBien.GetValueOrDefault(item.Referencia, "")</textarea>
                                 </div>
                             }
                             @if (item.Mal > 0)
@@ -63,7 +77,7 @@ else
                                 <div class="mb-2">
                                     <label>Mal (@item.Mal):</label>
                                     <textarea @oninput="(e) => nsMal[item.Referencia] = e.Value?.ToString() ?? string.Empty"
-                                              class="form-control" rows="2">@nsMal.GetValueOrDefault(item.Referencia, "")</textarea>
+                                    class="form-control" rows="2">@nsMal.GetValueOrDefault(item.Referencia, "")</textarea>
                                 </div>
                             }
                             @if (errores.TryGetValue(item.Referencia, out var err))
@@ -90,6 +104,8 @@ else
     [Parameter][SupplyParameterFromQuery] public string? albaran { get; set; }
     private int Albaran;
     private List<RecepcionLineaDto> lineas = new();
+    private Ubicaciones[]? ubicaciones;
+    private string ubicacionSeleccionada = string.Empty;
     private Dictionary<string, string> nsBien = new();
     private Dictionary<string, string> nsMal = new();
     private Dictionary<string, string> errores = new();
@@ -106,6 +122,9 @@ else
         var rawLineas = await Http.GetFromJsonAsync<RecepcionLineaDto[]>($"api/RecepcionesLin/{Albaran}");
         if (rawLineas == null) { lineas = new(); return; }
 
+        // Cargar ubicaciones
+        ubicaciones = await Http.GetFromJsonAsync<Ubicaciones[]>("api/ubicaciones");
+
         // Cargar referencias para saber si requieren NSerie
         var referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
         var refDict = referencias?.ToDictionary(r => r.Referencia, r => r) ?? new();
@@ -116,7 +135,7 @@ else
             Linea = l.Linea,
             Referencia = l.Referencia,
             Cantidad = l.Cantidad,
-            Bien = l.Cantidad, // por defecto todo bien
+            Bien = l.Cantidad,
             Mal = 0,
             DesReferencia = refDict.GetValueOrDefault(l.Referencia)?.DesReferencia ?? "DESC",
             RequiereNSerie = refDict.GetValueOrDefault(l.Referencia)?.NSerie == true,
@@ -179,7 +198,12 @@ else
 
         try
         {
-            // 🔥 Llamamos al nuevo endpoint (ver abajo)
+            var payload = new
+            {
+                Ubicacion = ubicacionSeleccionada,
+                Lineas = lineas
+            };
+            await Http.PutAsJsonAsync($"api/RecepcionesLin/confirmar-icp/{Albaran}", payload);
             await Http.PutAsJsonAsync($"api/RecepcionesLin/confirmar-icp/{Albaran}", lineas);
             await JSRuntime.InvokeVoidAsync("alert", "Palets generados y recepción confirmada.");
             Nav.NavigateTo("/icp");

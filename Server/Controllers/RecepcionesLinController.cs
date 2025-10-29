@@ -30,7 +30,6 @@ public class RecepcionesLinController : ControllerBase
                       Linea = lin.Linea,
                       Referencia = lin.Referencia,
                       Cantidad = lin.Cantidad,
-                      // Bien y Mal ya no vienen de la BD → se inicializan en la UI
                       Bien = 0,
                       Mal = 0,
                       DesReferencia = refe.DesReferencia,
@@ -141,11 +140,31 @@ public class RecepcionesLinController : ControllerBase
         await _context.SaveChangesAsync();
         return NoContent();
     }
-    [HttpPut("confirmar-icp/{albaran}")]
-    public async Task<IActionResult> ConfirmarIcp(int albaran, List<RecepcionLineaDto> lineasDto)
+    public class confirmarRequest
     {
+        public string ubicacion { get; set; } = null!;
+        public List<RecepcionLineaDto> Lineas { get; set; }
+    }
+    public class ConfirmarIcpRequest
+    {
+        public string Ubicacion { get; set; } = null!;
+        public List<RecepcionLineaDto> Lineas { get; set; } = new();
+    }
+
+    [HttpPut("confirmar-icp/{albaran}")]
+    public async Task<IActionResult> ConfirmarIcp(int albaran, [FromBody] ConfirmarIcpRequest request)
+    {
+        if (request == null)
+            return BadRequest("Solicitud inválida.");
+
+        var lineasDto = request.Lineas;
+        var ubicacion = request.Ubicacion;
+
         if (lineasDto == null || !lineasDto.Any())
             return BadRequest("No se proporcionaron líneas.");
+
+        if (string.IsNullOrWhiteSpace(ubicacion))
+            return BadRequest("La ubicación es obligatoria.");
 
         var cabecera = await _context.Recepciones_Cab.FindAsync(albaran);
         if (cabecera == null)
@@ -166,7 +185,7 @@ public class RecepcionesLinController : ControllerBase
         if (referenciasInvalidas.Any())
             return BadRequest($"Referencias no válidas: {string.Join(", ", referenciasInvalidas)}");
 
-        // Validar que cada línea exista en la base de datos (solo por Referencia y Cantidad)
+        // Validar que cada línea exista en la base de datos
         var lineasExistentes = await _context.Recepciones_Lin
             .Where(l => l.Albaran == albaran)
             .ToDictionaryAsync(l => l.Linea, l => l);
@@ -192,12 +211,10 @@ public class RecepcionesLinController : ControllerBase
             _context.Palets.RemoveRange(paletsAnteriores);
             await _context.SaveChangesAsync();
 
-            // 2. Crear nuevos palets según Bien/Mal de la UI
+            // 2. Crear nuevos palets según Bien/Mal
             var nuevosPalets = new List<Palets>();
             foreach (var dto in lineasDto)
             {
-                var refData = referenciasValidas[dto.Referencia];
-
                 // Palets para Bien
                 if (dto.Bien > 0)
                 {
@@ -210,8 +227,8 @@ public class RecepcionesLinController : ControllerBase
                             Referencia = dto.Referencia,
                             Cantidad = cant,
                             Albaran = albaran,
-                            Ubicacion = "UBI-1",
-                            Estado = 1, // Bien
+                            Ubicacion = ubicacion, // ← Usar la ubicación seleccionada
+                            Estado = 1,
                             FInsert = DateTime.Now
                         });
                         unidades -= cant;
@@ -230,8 +247,8 @@ public class RecepcionesLinController : ControllerBase
                             Referencia = dto.Referencia,
                             Cantidad = cant,
                             Albaran = albaran,
-                            Ubicacion = "UBI-1",
-                            Estado = 2, // Mal
+                            Ubicacion = "UBI-4", // fija para mal
+                            Estado = 2,
                             FInsert = DateTime.Now
                         });
                         unidades -= cant;
@@ -258,7 +275,7 @@ public class RecepcionesLinController : ControllerBase
                 var esperado = (dto.Bien ?? 0) + (dto.Mal ?? 0);
 
                 if (todosNSeries.Count != esperado)
-                    return BadRequest($"Se esperaban {esperado} números de serie para la referencia {dto.Referencia}, pero se proporcionaron {todosNSeries.Count}.");
+                    return BadRequest($"Se esperaban {esperado} números de serie para la referencia {dto.Referencia}.");
 
                 if (refData.LongNSerie.HasValue)
                 {
@@ -267,13 +284,11 @@ public class RecepcionesLinController : ControllerBase
                     {
                         if (string.IsNullOrEmpty(nserie))
                             return BadRequest("Se proporcionó un número de serie vacío.");
-
                         if (nserie.Length != longitudEsperada)
-                            return BadRequest($"El número de serie '{nserie}' tiene {nserie.Length} caracteres, pero se esperaban {longitudEsperada}.");
+                            return BadRequest($"Longitud inválida en número de serie '{nserie}' (esperado: {longitudEsperada}).");
                     }
                 }
 
-                // Asignar cada número de serie a un palet (round-robin)
                 for (int i = 0; i < todosNSeries.Count; i++)
                 {
                     var paletAsignado = paletsDeEstaRef[i % paletsDeEstaRef.Count];
@@ -290,7 +305,7 @@ public class RecepcionesLinController : ControllerBase
 
             await _context.SaveChangesAsync();
 
-            // 4. Actualizar estado de la cabecera a "Confirmado"
+            // 4. Actualizar estado de la cabecera
             cabecera.Estado = 4;
             cabecera.DesEstado = "Confirmado";
             _context.Recepciones_Cab.Update(cabecera);

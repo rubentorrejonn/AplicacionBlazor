@@ -41,6 +41,7 @@ public class OrdenSalidaCabController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> PutOrdenSalida(int id, OrdenSalidaCab cab)
     {
+        
         if (id != cab.Peticion) return BadRequest();
         _context.Entry(cab).State = EntityState.Modified;
         try
