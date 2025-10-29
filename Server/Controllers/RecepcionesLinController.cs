@@ -227,7 +227,7 @@ public class RecepcionesLinController : ControllerBase
                             Referencia = dto.Referencia,
                             Cantidad = cant,
                             Albaran = albaran,
-                            Ubicacion = ubicacion, // ← Usar la ubicación seleccionada
+                            Ubicacion = ubicacion,
                             Estado = 1,
                             FInsert = DateTime.Now
                         });
@@ -247,7 +247,7 @@ public class RecepcionesLinController : ControllerBase
                             Referencia = dto.Referencia,
                             Cantidad = cant,
                             Albaran = albaran,
-                            Ubicacion = "UBI-4", // fija para mal
+                            Ubicacion = "UBI-4",
                             Estado = 2,
                             FInsert = DateTime.Now
                         });
@@ -291,6 +291,7 @@ public class RecepcionesLinController : ControllerBase
 
                 for (int i = 0; i < todosNSeries.Count; i++)
                 {
+                    // Esto para guardar las nserie recepciones
                     var paletAsignado = paletsDeEstaRef[i % paletsDeEstaRef.Count];
                     _context.NSeries_Recepciones.Add(new NSeriesRecepciones
                     {
@@ -299,6 +300,15 @@ public class RecepcionesLinController : ControllerBase
                         Palet = paletAsignado.Palet,
                         Referencia = dto.Referencia,
                         FCreacion = DateTime.Now
+                    });
+                    // Esto es para los seguimientos
+                    _context.NSeries_Seguimiento.Add(new NSeriesSeguimiento
+                    {
+                        NSerie = todosNSeries[i],
+                        Palet = paletAsignado.Palet,
+                        Referencia = dto.Referencia,
+                        FPicking = DateTime.Now
+
                     });
                 }
             }

@@ -18,7 +18,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Ubicaciones> Ubicaciones { get; set; }
     public DbSet<Palets> Palets { get; set; }
     public DbSet<NSeriesRecepciones> NSeries_Recepciones { get; set; }
-    public DbSet<NSeriesSeguimiento> NSeries_Seguimientos { get; set; }
+    public DbSet<NSeriesSeguimiento> NSeries_Seguimiento { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
