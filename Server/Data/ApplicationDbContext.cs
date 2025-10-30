@@ -11,7 +11,7 @@ public class ApplicationDbContext : DbContext
     }
 
     public DbSet<RecepcionesCab> Recepciones_Cab { get; set; }
-    public DbSet<OrdenSalidaCab>Orden_Salida_Cab { get; set; }
+    public DbSet<OrdenSalidaCab> Orden_Salida_Cab { get; set; }
     public DbSet<RecepcionesLin> Recepciones_Lin { get; set; }
     public DbSet<OrdenSalidaLin> Orden_Salida_Lin { get; set; }
     public DbSet<Referencias> Referencias { get; set; }
@@ -22,7 +22,6 @@ public class ApplicationDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // RecepcionesCab
         modelBuilder.Entity<RecepcionesCab>()
             .HasKey(r => r.Albaran);
 
@@ -30,18 +29,15 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<RecepcionesLin>()
             .HasKey(rl => new { rl.Albaran, rl.Linea });
 
-        // Referencias
         modelBuilder.Entity<Referencias>()
             .HasKey(r => r.Referencia);
 
-        // Palets (PK simple)
         modelBuilder.Entity<Palets>()
             .HasKey(p => p.Palet);
 
         modelBuilder.Entity<NSeriesSeguimiento>()
             .HasKey(nss => nss.NSerie);
 
-        // NSeriesRecepciones
         modelBuilder.Entity<NSeriesRecepciones>()
             .HasKey(ns => ns.NSerie);
 

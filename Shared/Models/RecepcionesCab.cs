@@ -16,7 +16,7 @@ namespace UltimateProyect.Shared.Models
         [Column("F_CREACION")]
         public DateTime FCreacion {  get; set; } = DateTime.Now;
         [Column("F_CONFIRMACION")]
-        public DateTime FConfirmacion {  get; set; } = DateTime.Now;
+        public DateTime? FConfirmacion {  get; set; }
         [Column("ESTADO")]
         public int Estado { get; set; }
         [Column("DES_ESTADO")]

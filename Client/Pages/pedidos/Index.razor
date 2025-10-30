@@ -1,0 +1,128 @@
+﻿@page "/pedidos"
+@using UltimateProyect.Shared.Models
+@using UltimateProyect.Client.Services
+@inject HttpClient Http
+@inject SalidasService SalidasService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+
+<h3>Pedidos</h3>
+
+@if (SalidasService.Carrito.Any())
+{
+    <h4>Carrito (@SalidasService.Carrito.Values.Sum(x => x.Cantidad) unidades)</h4>
+    <table class="table table-sm table-bordered">
+        <thead>
+            <tr>
+                <th>Referencia</th>
+                <th>Artículo</th>
+                <th>Cantidad solicitada</th>
+                <th>Stock disponible</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in SalidasService.Carrito.Values)
+            {
+                var stock = SalidasService.StockDisponible.GetValueOrDefault(item.Referencia, 0);
+                <tr class="@(item.Cantidad > stock ? "table-danger" : "")">
+                    <td>@item.Referencia</td>
+                    <td>@item.DesReferencia</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => SalidasService.Decrementar(item.Referencia)">-</button>
+                        @item.Cantidad
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => SalidasService.Incrementar(item.Referencia)">+</button>
+                    </td>
+                    <td>@stock</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" @onclick="() => SalidasService.Eliminar(item.Referencia)">Eliminar</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button class="btn btn-success" @onclick="ConfirmarPedido"
+            disabled="@(SalidasService.Carrito.Values.Any(x => x.Cantidad > SalidasService.StockDisponible.GetValueOrDefault(x.Referencia, 0)))">
+        Confirmar Pedido
+    </button>
+    <button class="btn btn-secondary ms-2" @onclick="SalidasService.Clear">Vaciar carrito</button>
+}
+
+<h4 class="mt-4">Catálogo de Productos Disponibles</h4>
+@if (referencias == null)
+{
+    <p>Cargando...</p>
+}
+else if (!referencias.Any())
+{
+    <p>No hay productos con stock disponible.</p>
+}
+else
+{
+    <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px">
+        @foreach (var refe in referencias)
+        {
+            var stock = SalidasService.StockDisponible.GetValueOrDefault(refe.Referencia, 0);
+            if (stock <= 0) continue;
+
+            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                <div>
+                    <strong>@refe.Referencia</strong><br />
+                    <small>@refe.DesReferencia</small><br />
+                    <small class="text-muted">Stock: @stock</small>
+                </div>
+                <button class="btn btn-sm btn-success"
+                        @onclick="() => SalidasService.AgregarAlCarrito(refe.Referencia, refe.DesReferencia)">
+                    +
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private Referencias[]? referencias;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Cargar referencias
+        referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
+
+        // Cargar stock desde Palets (solo estado 1 = Buen estado)
+        var stock = await Http.GetFromJsonAsync<Dictionary<string, int>>("api/Palets/stock");
+        SalidasService.ActualizarStock(stock ?? new());
+    }
+
+    private async Task ConfirmarPedido()
+    {
+        var lineas = SalidasService.ToLineasDto();
+        if (!lineas.Any())
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "El carrito está vacío.");
+            return;
+        }
+
+        // Validar stock
+        foreach (var linea in lineas)
+        {
+            var stock = SalidasService.StockDisponible.GetValueOrDefault(linea.Referencia, 0);
+            if (linea.Cantidad > stock)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"No hay suficiente stock para {linea.Referencia}.");
+                return;
+            }
+        }
+
+        try
+        {
+            await Http.PostAsJsonAsync("api/OrdenSalidaLin", lineas);
+            await JSRuntime.InvokeVoidAsync("alert", "Pedido confirmado correctamente.");
+            SalidasService.Clear();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al confirmar el pedido: {ex.Message}");
+        }
+    }
+}

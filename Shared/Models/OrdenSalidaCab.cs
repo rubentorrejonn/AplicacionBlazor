@@ -26,7 +26,7 @@ namespace UltimateProyect.Shared.Models
         [StringLength(9, MinimumLength = 9, ErrorMessage = "El telefono tiene que tener 9 digitos")]
         public string Telefono { get; set; } = null!;
         [Column("F_CREACION")]
-        public DateTime FCreacion { get; set; }
+        public DateTime FCreacion { get; set; } = DateTime.Now;
         [Column("ESTADO")]
         public int Estado { get; set; }
     }

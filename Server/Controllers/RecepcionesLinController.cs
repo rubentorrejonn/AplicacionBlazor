@@ -170,6 +170,9 @@ public class RecepcionesLinController : ControllerBase
         if (cabecera == null)
             return NotFound("Albarán no encontrado.");
 
+        var fechaConfirmacion = DateTime.Now;
+        cabecera.FConfirmacion = fechaConfirmacion;
+
         if (cabecera.Estado != 3)
             return BadRequest("Solo se puede confirmar un albarán en estado 'Enviado a ICP'.");
 
@@ -229,7 +232,7 @@ public class RecepcionesLinController : ControllerBase
                             Albaran = albaran,
                             Ubicacion = ubicacion,
                             Estado = 1,
-                            FInsert = DateTime.Now
+                            FInsert = fechaConfirmacion
                         });
                         unidades -= cant;
                     }
@@ -249,7 +252,7 @@ public class RecepcionesLinController : ControllerBase
                             Albaran = albaran,
                             Ubicacion = "UBI-4",
                             Estado = 2,
-                            FInsert = DateTime.Now
+                            FInsert = fechaConfirmacion
                         });
                         unidades -= cant;
                     }
@@ -316,6 +319,7 @@ public class RecepcionesLinController : ControllerBase
             await _context.SaveChangesAsync();
 
             // 4. Actualizar estado de la cabecera
+            cabecera.FConfirmacion = fechaConfirmacion;
             cabecera.Estado = 4;
             cabecera.DesEstado = "Confirmado";
             _context.Recepciones_Cab.Update(cabecera);

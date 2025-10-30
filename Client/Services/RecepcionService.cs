@@ -36,7 +36,7 @@ namespace UltimateProyect.Client.Services
 
             if (Carrito.ContainsKey(referencia))
             {
-                // Solo actualizamos cantidades, no NSerie (ya está definido)
+                
                 Carrito[referencia].Cantidad += cantidad;
                 Carrito[referencia].Bien = bien;
                 Carrito[referencia].Mal = mal;
