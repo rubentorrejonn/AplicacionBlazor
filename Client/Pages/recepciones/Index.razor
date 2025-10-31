@@ -32,7 +32,8 @@ else
             @foreach (var cab in cabeceras)
             {
                 bool bloqueado = cab.Estado >= 2;
-                bool bloquearICP = cab.Estado == 3 || cab.Estado == 4;
+                bool bloquearEdit = cab.Estado != 2;
+                bool bloquearICP = cab.Estado == 3 || cab.Estado == 4 || cab.Estado == 0;
 
                 <tr>
                     <td>@cab.Albaran</td>
@@ -40,12 +41,11 @@ else
                     <td style="color:chocolate">@cab.Estado - @cab.DesEstado</td>
                     <td>@cab.FCreacion.ToShortDateString()</td>
                     <td>
-                        <!--
-                        <a class="btn btn-sm btn-primary @(bloqueado ? "disabled" : "")"
-                                                   href="/recepciones/edit/@cab.Albaran">Editar</a>
-                        -->
 
-                        <button class="btn btn-sm btn-info ms-1"
+                        <a class="btn btn-sm btn-primary @(bloquearEdit ? "disabled" : "")"
+                           href="/recepciones/edit/@cab.Albaran">Editar</a>
+                        
+                        <button class="btn btn-sm btn-secondary ms-1"
                                 @onclick="() => Recepcionar(cab)"
                                 disabled="@(bloqueado)">
                             Recepcionar

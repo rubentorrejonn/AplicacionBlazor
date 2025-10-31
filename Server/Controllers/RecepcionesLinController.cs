@@ -49,8 +49,8 @@ public class RecepcionesLinController : ControllerBase
             return BadRequest("No se proporcionaron líneas.");
 
         var albaran = lineasDto.First().Albaran;
-
-        if (!await _context.Recepciones_Cab.AnyAsync(c => c.Albaran == albaran))
+        var cabecera = await _context.Recepciones_Cab.FindAsync(albaran);
+        if (cabecera == null)
             return BadRequest($"El albarán {albaran} no existe.");
 
         var referencias = lineasDto.Select(l => l.Referencia).Distinct().ToList();
@@ -66,23 +66,47 @@ public class RecepcionesLinController : ControllerBase
 
         try
         {
-            var maxLinea = await _context.Recepciones_Lin
+            var paletsExistentes = await _context.Palets
+                .Where(p => p.Albaran == albaran)
+                .Select(p => p.Palet)
+                .ToListAsync();
+
+            if (paletsExistentes.Any())
+            {
+                var nseriesExistentes = await _context.NSeries_Recepciones
+                    .Where(ns => paletsExistentes.Contains(ns.Palet))
+                    .ToListAsync();
+                _context.NSeries_Recepciones.RemoveRange(nseriesExistentes);
+
+                var seguimientosExistentes = await _context.NSeries_Seguimiento
+                    .Where(ns => paletsExistentes.Contains(ns.Palet))
+                    .ToListAsync();
+                _context.NSeries_Seguimiento.RemoveRange(seguimientosExistentes);
+
+                var paletsToRemove = await _context.Palets
+                    .Where(p => p.Albaran == albaran)
+                    .ToListAsync();
+                _context.Palets.RemoveRange(paletsToRemove);
+            }
+
+            var lineasExistentes = await _context.Recepciones_Lin
                 .Where(l => l.Albaran == albaran)
-                .MaxAsync(l => (int?)l.Linea) ?? 0;
+                .ToListAsync();
+            _context.Recepciones_Lin.RemoveRange(lineasExistentes);
+
+            await _context.SaveChangesAsync();
 
             var entidadesLin = lineasDto.Select((dto, index) => new RecepcionesLin
             {
                 Albaran = dto.Albaran,
-                Linea = maxLinea + index + 1,
+                Linea = index + 1,
                 Referencia = dto.Referencia,
                 Cantidad = dto.Cantidad ?? 0
-                // ⚠️ Sin Bien, sin Mal
             }).ToList();
 
             _context.Recepciones_Lin.AddRange(entidadesLin);
             await _context.SaveChangesAsync();
 
-            // Generar palets TEMPORALES (solo para tener stock, todos como "Bien" por ahora)
             var palets = new List<Palets>();
             foreach (var lin in entidadesLin)
             {
@@ -96,7 +120,7 @@ public class RecepcionesLinController : ControllerBase
                         Cantidad = cant,
                         Albaran = lin.Albaran,
                         Ubicacion = "UBI-1",
-                        Estado = 1, // temporal: todo bien
+                        Estado = 1,
                         FInsert = DateTime.Now
                     });
                     unidades -= cant;
@@ -106,13 +130,11 @@ public class RecepcionesLinController : ControllerBase
             _context.Palets.AddRange(palets);
             await _context.SaveChangesAsync();
 
-            // Actualizar estado a "Recepcionado"
-            var cab = await _context.Recepciones_Cab.FindAsync(albaran);
-            if (cab != null)
+            if (cabecera.Estado == 1)
             {
-                cab.Estado = 2;
-                cab.DesEstado = "Recepcionado";
-                _context.Update(cab);
+                cabecera.Estado = 2;
+                cabecera.DesEstado = "Recepcionado";
+                _context.Recepciones_Cab.Update(cabecera);
                 await _context.SaveChangesAsync();
             }
 
@@ -122,8 +144,8 @@ public class RecepcionesLinController : ControllerBase
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            Console.WriteLine($"Error: {ex}");
-            return StatusCode(500, "Error al crear recepción.");
+            Console.WriteLine($"Error al crear/editar recepción: {ex}");
+            return StatusCode(500, "Error interno al procesar la recepción.");
         }
     }
 
@@ -139,11 +161,6 @@ public class RecepcionesLinController : ControllerBase
         _context.Recepciones_Lin.RemoveRange(lineas);
         await _context.SaveChangesAsync();
         return NoContent();
-    }
-    public class confirmarRequest
-    {
-        public string ubicacion { get; set; } = null!;
-        public List<RecepcionLineaDto> Lineas { get; set; }
     }
     public class ConfirmarIcpRequest
     {
@@ -188,7 +205,6 @@ public class RecepcionesLinController : ControllerBase
         if (referenciasInvalidas.Any())
             return BadRequest($"Referencias no válidas: {string.Join(", ", referenciasInvalidas)}");
 
-        // Validar que cada línea exista en la base de datos
         var lineasExistentes = await _context.Recepciones_Lin
             .Where(l => l.Albaran == albaran)
             .ToDictionaryAsync(l => l.Linea, l => l);
@@ -209,7 +225,6 @@ public class RecepcionesLinController : ControllerBase
 
         try
         {
-            // 1. Eliminar palets anteriores del albarán
             var paletsAnteriores = await _context.Palets.Where(p => p.Albaran == albaran).ToListAsync();
             _context.Palets.RemoveRange(paletsAnteriores);
             await _context.SaveChangesAsync();
@@ -262,7 +277,6 @@ public class RecepcionesLinController : ControllerBase
             _context.Palets.AddRange(nuevosPalets);
             await _context.SaveChangesAsync();
 
-            // 3. Guardar números de serie si la referencia los requiere
             foreach (var dto in lineasDto)
             {
                 var refData = referenciasValidas[dto.Referencia];
@@ -294,7 +308,6 @@ public class RecepcionesLinController : ControllerBase
 
                 for (int i = 0; i < todosNSeries.Count; i++)
                 {
-                    // Esto para guardar las nserie recepciones
                     var paletAsignado = paletsDeEstaRef[i % paletsDeEstaRef.Count];
                     _context.NSeries_Recepciones.Add(new NSeriesRecepciones
                     {
@@ -304,7 +317,6 @@ public class RecepcionesLinController : ControllerBase
                         Referencia = dto.Referencia,
                         FCreacion = DateTime.Now
                     });
-                    // Esto es para los seguimientos
                     _context.NSeries_Seguimiento.Add(new NSeriesSeguimiento
                     {
                         NSerie = todosNSeries[i],
@@ -318,7 +330,6 @@ public class RecepcionesLinController : ControllerBase
 
             await _context.SaveChangesAsync();
 
-            // 4. Actualizar estado de la cabecera
             cabecera.FConfirmacion = fechaConfirmacion;
             cabecera.Estado = 4;
             cabecera.DesEstado = "Confirmado";

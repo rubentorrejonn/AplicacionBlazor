@@ -94,7 +94,7 @@ else
         RecepcionService.AddOrIncrement(
             refe.Referencia,
             refe.DesReferencia,
-            requiereNSerie: false, // ❌ No se usa aquí
+            requiereNSerie: false, 
             longNSerie: null,
             cantidad: 1,
             bien: 0,
@@ -109,6 +109,7 @@ else
     {
         try
         {
+
             var lineas = RecepcionService.ToLineasDto();
             if (!lineas.Any()) return;
 

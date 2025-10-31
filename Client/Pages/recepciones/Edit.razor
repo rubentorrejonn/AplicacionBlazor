@@ -1,0 +1,135 @@
+﻿@page "/recepciones/edit/{Albaran:int}"
+@using UltimateProyect.Shared.Models
+@using UltimateProyect.Client.Services
+@inject HttpClient Http
+@inject RecepcionService RecepcionService
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<h3>Editar Recepción - Albarán @Albaran</h3>
+
+@if (referencias == null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    @if (RecepcionService.Carrito.Any())
+    {
+        <h4>Líneas actuales (@RecepcionService.Carrito.Values.Sum(x => x.Cantidad) unidades)</h4>
+        <table class="table table-sm table-bordered">
+            <thead>
+                <tr>
+                    <th>Referencia</th>
+                    <th>Descripción</th>
+                    <th>Cantidad</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in RecepcionService.Carrito.Values)
+                {
+                    <tr>
+                        <td>@item.Referencia</td>
+                        <td>@item.DesReferencia</td>
+                        <td>
+                            <InputNumber @bind-Value="item.Cantidad" class="form-control form-control-sm" min="1" />
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" @onclick="() => RecepcionService.Remove(item.Referencia)">
+                                Eliminar
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <button class="btn btn-success" @onclick="GuardarEdicion">Guardar Cambios</button>
+        <button class="btn btn-secondary ms-1" @onclick="Cancel">Cancelar</button>
+    }
+
+    <h4 class="mt-4">Catálogo de Referencias</h4>
+    <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;">
+        @foreach (var refe in referencias)
+        {
+            <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                <div>
+                    <strong>@refe.Referencia</strong><br />
+                    <small>@refe.DesReferencia</small>
+                </div>
+                <button class="btn btn-sm btn-primary"
+                @onclick="() => AgregarNuevaReferencia(refe)">
+                    +
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int Albaran { get; set; }
+    private Referencias[]? referencias;
+
+    protected override async Task OnInitializedAsync()
+    {
+        RecepcionService.SetCurrentAlbaran(Albaran);
+
+        referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
+        var lineasExistentes = await Http.GetFromJsonAsync<RecepcionLineaDto[]>($"api/RecepcionesLin/{Albaran}");
+        if (lineasExistentes != null)
+        {
+            foreach (var linea in lineasExistentes)
+            {
+                RecepcionService.Carrito[linea.Referencia] = new RecepcionLineaDto
+                {
+                    Referencia = linea.Referencia,
+                    DesReferencia = linea.DesReferencia,
+                    Cantidad = linea.Cantidad ?? 1,
+                    Bien = 0,
+                    Mal = 0,
+                    RequiereNSerie = linea.RequiereNSerie,
+                    LongNSerie = linea.LongNSerie
+                };
+            }
+        }
+    }
+
+    private void AgregarNuevaReferencia(Referencias refe)
+    {
+        if (!RecepcionService.Carrito.ContainsKey(refe.Referencia))
+        {
+            RecepcionService.Carrito[refe.Referencia] = new RecepcionLineaDto
+            {
+                Referencia = refe.Referencia,
+                DesReferencia = refe.DesReferencia,
+                Cantidad = 1,
+                Bien = 0,
+                Mal = 0,
+                RequiereNSerie = refe.NSerie == true,
+                LongNSerie = refe.LongNSerie
+            };
+        }
+    }
+
+    private async Task GuardarEdicion()
+    {
+        try
+        {
+            var lineas = RecepcionService.ToLineasDto();
+            if (!lineas.Any())
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "El carrito no puede quedar vacío.");
+                return;
+            }
+
+            await Http.PostAsJsonAsync("api/RecepcionesLin", lineas);
+            await JSRuntime.InvokeVoidAsync("alert", "Recepción actualizada correctamente.");
+            Nav.NavigateTo("/recepciones");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al guardar: {ex.Message}");
+        }
+    }
+    private void Cancel() => Nav.NavigateTo("/recepciones");
+}

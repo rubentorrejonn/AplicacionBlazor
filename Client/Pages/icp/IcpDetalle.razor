@@ -205,7 +205,6 @@ else
                 Lineas = lineas
             };
             await Http.PutAsJsonAsync($"api/RecepcionesLin/confirmar-icp/{Albaran}", payload);
-            await Http.PutAsJsonAsync($"api/RecepcionesLin/confirmar-icp/{Albaran}", lineas);
             await JSRuntime.InvokeVoidAsync("alert", "Palets generados y recepción confirmada.");
             Nav.NavigateTo("/icp");
         }
