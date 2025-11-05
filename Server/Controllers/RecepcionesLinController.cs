@@ -317,14 +317,15 @@ public class RecepcionesLinController : ControllerBase
                         Referencia = dto.Referencia,
                         FCreacion = DateTime.Now
                     });
-                    _context.NSeries_Seguimiento.Add(new NSeriesSeguimiento
+                    //Lo reutilizare en otro sitio
+                    /*_context.NSeries_Seguimiento.Add(new NSeriesSeguimiento
                     {
                         NSerie = todosNSeries[i],
                         Palet = paletAsignado.Palet,
                         Referencia = dto.Referencia,
                         FPicking = DateTime.Now
-
                     });
+                    */
                 }
             }
 

@@ -19,7 +19,6 @@
         <InputNumber class="form-control" @bind-Value="NuevaReferencia.Precio" />
     </div>
 
-    <!-- ¿Tiene número de serie? -->
     <div class="mb-3">
         <label for="numSerie" class="form-label">¿Tiene número de serie?</label>
         <InputSelect class="form-select" id="numSerie" @bind-Value="NuevaReferencia.NSerie">
@@ -28,7 +27,6 @@
         </InputSelect>
     </div>
 
-    <!-- Longitud del número de serie -->
     <div class="mb-3">
         <label for="longSerie" class="form-label">Longitud número de serie</label>
         @if (NuevaReferencia.NSerie == true)

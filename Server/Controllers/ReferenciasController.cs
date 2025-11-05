@@ -27,7 +27,7 @@ public class ReferenciasController : ControllerBase
         catch (Exception ex)
         {
             
-            Console.WriteLine("🚨 ERROR EN REFERENCIAS:");
+            Console.WriteLine("ERROR EN REFERENCIAS:");
             Console.WriteLine(ex.InnerException?.Message ?? ex.Message);
             throw; 
         }
