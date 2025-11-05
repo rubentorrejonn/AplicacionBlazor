@@ -1,5 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
+using System.Runtime.InteropServices;
 using UltimateProyect.Server.Data;
 using UltimateProyect.Shared.Models;
 
@@ -245,7 +248,7 @@ public class RecepcionesLinController : ControllerBase
                             Referencia = dto.Referencia,
                             Cantidad = cant,
                             Albaran = albaran,
-                            Ubicacion = ubicacion,
+                            Ubicacion = "UBI-5",
                             Estado = 1,
                             FInsert = fechaConfirmacion
                         });
@@ -331,10 +334,50 @@ public class RecepcionesLinController : ControllerBase
 
             await _context.SaveChangesAsync();
 
+
+            var destinatariosParam = new SqlParameter("@DESTINATARIOS", "practicas.soporte@icp.es");
+            var textoEmailParam = new SqlParameter("@TEXTO_EMAIL", "prueba");
+            var asuntoEmailParam = new SqlParameter("@ASUNTO_EMAIL", "pruebaa");
+            var perfilEmailParam = new SqlParameter("@PERFIL_EMAIL", "");
+            var destinatariosCcParam = new SqlParameter("@DESTINATARIOS_CC", "");
+            var destinatariosCcoParam = new SqlParameter("@DESTINATARIOS_CCO", "");
+            var formatoEmailParam = new SqlParameter("@FORMATO_EMAIL", "html");
+            var importanciaEmailParam = new SqlParameter("@IMPORTANCIA_EMAIL", "");
+            var confidencialidadParam = new SqlParameter("@CONFIDENCIALIDAD", "");
+            var archivosAdjuntosParam = new SqlParameter("@ARCHIVOS_ADJUNTOS", "");
+            var ocultarTextoParam = new SqlParameter("@OCULTAR_TEXTO", false);
+            var replyToParam = new SqlParameter("@REPLY_TO", "");
+            var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int)
+            {
+                Direction = ParameterDirection.Output
+            };
+
+            await _context.Database.ExecuteSqlRawAsync(
+                "EXEC @RETCODE = PA_ENVIAR_DBMAIL " +
+                "@DESTINATARIOS, @TEXTO_EMAIL, @ASUNTO_EMAIL, @PERFIL_EMAIL, " +
+                "@DESTINATARIOS_CC, @DESTINATARIOS_CCO, @FORMATO_EMAIL, @IMPORTANCIA_EMAIL, " +
+                "@CONFIDENCIALIDAD, @ARCHIVOS_ADJUNTOS, @OCULTAR_TEXTO, @REPLY_TO, @RETCODE OUTPUT",
+                destinatariosParam,
+                textoEmailParam,
+                asuntoEmailParam,
+                perfilEmailParam,
+                destinatariosCcParam,
+                destinatariosCcoParam,
+                formatoEmailParam,
+                importanciaEmailParam,
+                confidencialidadParam,
+                archivosAdjuntosParam,
+                ocultarTextoParam,
+                replyToParam,
+                retCodeParam
+            );
+
+
             cabecera.FConfirmacion = fechaConfirmacion;
             cabecera.Estado = 4;
             cabecera.DesEstado = "Confirmado";
             _context.Recepciones_Cab.Update(cabecera);
+
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
