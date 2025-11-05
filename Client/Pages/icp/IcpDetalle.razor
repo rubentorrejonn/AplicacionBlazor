@@ -6,6 +6,7 @@
 
 <h3>Detallar Albarán @Albaran para ICP</h3>
 
+<!--
 <div class="form-group mb-3">
     <label for="ubicacionSelect">Selecciona Ubicación</label>
     <InputSelect @bind-Value="ubicacionSeleccionada" class="form-control">
@@ -19,6 +20,8 @@
         }
     </InputSelect>
 </div>
+    
+-->
 
 @if (lineas == null)
 {
@@ -118,11 +121,9 @@ else
             return;
         }
 
-        // Cargar líneas del albarán
         var rawLineas = await Http.GetFromJsonAsync<RecepcionLineaDto[]>($"api/RecepcionesLin/{Albaran}");
         if (rawLineas == null) { lineas = new(); return; }
 
-        // Cargar ubicaciones
         ubicaciones = await Http.GetFromJsonAsync<Ubicaciones[]>("api/ubicaciones");
 
         // Cargar referencias para saber si requieren NSerie
@@ -191,6 +192,7 @@ else
                         }
                     }
                 }
+                
 
                 item.NumerosSerieBien = bienList;
                 item.NumerosSerieMal = malList;
@@ -199,9 +201,10 @@ else
 
         try
         {
+            
             var payload = new
             {
-                Ubicacion = ubicacionSeleccionada,
+                Ubicacion = "UBI-5",
                 Lineas = lineas
             };
             await Http.PutAsJsonAsync($"api/RecepcionesLin/confirmar-icp/{Albaran}", payload);

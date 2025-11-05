@@ -48,6 +48,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         var todos = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+        //Que desaparezca de la lista cuando esta "estado 4 confirmado"
         albaranes = todos?.Where(x => x.Estado == 3).ToArray();
     }
 }

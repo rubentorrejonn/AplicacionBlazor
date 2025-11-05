@@ -3,6 +3,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Runtime.InteropServices;
+using System.Text;
 using UltimateProyect.Server.Data;
 using UltimateProyect.Shared.Models;
 
@@ -80,12 +81,12 @@ public class RecepcionesLinController : ControllerBase
                     .Where(ns => paletsExistentes.Contains(ns.Palet))
                     .ToListAsync();
                 _context.NSeries_Recepciones.RemoveRange(nseriesExistentes);
-
+                /*
                 var seguimientosExistentes = await _context.NSeries_Seguimiento
                     .Where(ns => paletsExistentes.Contains(ns.Palet))
                     .ToListAsync();
                 _context.NSeries_Seguimiento.RemoveRange(seguimientosExistentes);
-
+                */
                 var paletsToRemove = await _context.Palets
                     .Where(p => p.Albaran == albaran)
                     .ToListAsync();
@@ -122,7 +123,7 @@ public class RecepcionesLinController : ControllerBase
                         Referencia = lin.Referencia,
                         Cantidad = cant,
                         Albaran = lin.Albaran,
-                        Ubicacion = "UBI-1",
+                        Ubicacion = "UBI-5",
                         Estado = 1,
                         FInsert = DateTime.Now
                     });
@@ -178,13 +179,10 @@ public class RecepcionesLinController : ControllerBase
             return BadRequest("Solicitud inválida.");
 
         var lineasDto = request.Lineas;
-        var ubicacion = request.Ubicacion;
+        var ubicacion = request.Ubicacion ?? "UBI-5";
 
         if (lineasDto == null || !lineasDto.Any())
             return BadRequest("No se proporcionaron líneas.");
-
-        if (string.IsNullOrWhiteSpace(ubicacion))
-            return BadRequest("La ubicación es obligatoria.");
 
         var cabecera = await _context.Recepciones_Cab.FindAsync(albaran);
         if (cabecera == null)
@@ -228,11 +226,37 @@ public class RecepcionesLinController : ControllerBase
 
         try
         {
-            var paletsAnteriores = await _context.Palets.Where(p => p.Albaran == albaran).ToListAsync();
-            _context.Palets.RemoveRange(paletsAnteriores);
-            await _context.SaveChangesAsync();
 
-            // 2. Crear nuevos palets según Bien/Mal
+            var paletsDelAlbaran = await _context.Palets
+                .Where(p => p.Albaran == albaran)
+                .Select(p => p.Palet)
+            .ToListAsync();
+
+            if (paletsDelAlbaran.Any())
+            {
+                // Eliminamos NSeries_Recepciones que apunten a esos palets
+                var nseriesExistentes = await _context.NSeries_Recepciones
+                    .Where(ns => paletsDelAlbaran.Contains(ns.Palet))
+                    .ToListAsync();
+                _context.NSeries_Recepciones.RemoveRange(nseriesExistentes);
+
+                // Opcional: Si también gestionas NSeries_Seguimiento aquí, descomenta:
+                /*
+                var seguimientosExistentes = await _context.NSeries_Seguimiento
+                    .Where(ns => paletsDelAlbaran.Contains(ns.Palet))
+                    .ToListAsync();
+                _context.NSeries_Seguimiento.RemoveRange(seguimientosExistentes);
+                */
+            }
+
+            var paletsAnteriores = await _context.Palets
+            .Where(p => p.Albaran == albaran)
+                .ToListAsync();
+            _context.Palets.RemoveRange(paletsAnteriores);
+
+            await _context.SaveChangesAsync(); // Guardamos la eliminación de NSeries y Palets
+
+            //Crear nuevos palets según Bien/Mal
             var nuevosPalets = new List<Palets>();
             foreach (var dto in lineasDto)
             {
@@ -278,7 +302,7 @@ public class RecepcionesLinController : ControllerBase
             }
 
             _context.Palets.AddRange(nuevosPalets);
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // Guardamos nuevos palets
 
             foreach (var dto in lineasDto)
             {
@@ -320,67 +344,81 @@ public class RecepcionesLinController : ControllerBase
                         Referencia = dto.Referencia,
                         FCreacion = DateTime.Now
                     });
-                    //Lo reutilizare en otro sitio
+                    // Lo reutilizare en otro sitio
                     /*_context.NSeries_Seguimiento.Add(new NSeriesSeguimiento
                     {
                         NSerie = todosNSeries[i],
                         Palet = paletAsignado.Palet,
                         Referencia = dto.Referencia,
                         FPicking = DateTime.Now
-                    });
-                    */
+                    });*/
                 }
             }
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // Guardamos nuevos NSeries
 
+            var referenciasIds = request.Lineas.Select(l => l.Referencia).Distinct().ToList();
+            var referenciasDict = await _context.Referencias
+                .Where(r => referenciasIds.Contains(r.Referencia))
+                .ToDictionaryAsync(r => r.Referencia, r => r.DesReferencia);
+
+            var cuerpoEmail = new StringBuilder();
+            cuerpoEmail.AppendLine($"Confirmación de recepcion - Albarán {albaran}");
+            cuerpoEmail.AppendLine("==========================================");
+            cuerpoEmail.AppendLine("Referencia\tDescripcion\t\tCantidad Bien\tCantidad Mal");
+            cuerpoEmail.AppendLine("-----------------------------------------");
+
+            foreach (var linea in request.Lineas)
+            {
+                var descripcion = referenciasDict.GetValueOrDefault(linea.Referencia, "DESC NO DISPONIBLE");
+
+                cuerpoEmail.AppendLine($"{linea.Referencia}\t\t{descripcion}\t\t{linea.Bien ?? 0}\t\t{linea.Mal ?? 0}");
+            }
 
             var destinatariosParam = new SqlParameter("@DESTINATARIOS", "practicas.soporte@icp.es");
-            var textoEmailParam = new SqlParameter("@TEXTO_EMAIL", "prueba");
-            var asuntoEmailParam = new SqlParameter("@ASUNTO_EMAIL", "pruebaa");
-            var perfilEmailParam = new SqlParameter("@PERFIL_EMAIL", "");
+            var textoEmailParam = new SqlParameter("@TEXTO_EMAIL", cuerpoEmail.ToString());
+            var asuntoEmailParam = new SqlParameter("@ASUNTO_EMAIL", $"Confirmación ICP - Albarán {albaran}");
+            var perfilEmailParam = new SqlParameter("@PERFIL_EMAIL", null);
             var destinatariosCcParam = new SqlParameter("@DESTINATARIOS_CC", "");
             var destinatariosCcoParam = new SqlParameter("@DESTINATARIOS_CCO", "");
-            var formatoEmailParam = new SqlParameter("@FORMATO_EMAIL", "html");
+            var formatoEmailParam = new SqlParameter("@FORMATO_EMAIL", "text");
             var importanciaEmailParam = new SqlParameter("@IMPORTANCIA_EMAIL", "");
             var confidencialidadParam = new SqlParameter("@CONFIDENCIALIDAD", "");
             var archivosAdjuntosParam = new SqlParameter("@ARCHIVOS_ADJUNTOS", "");
-            var ocultarTextoParam = new SqlParameter("@OCULTAR_TEXTO", false);
-            var replyToParam = new SqlParameter("@REPLY_TO", "");
-            var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int)
+            try
             {
-                Direction = ParameterDirection.Output
-            };
+                await _context.Database.ExecuteSqlRawAsync(
+                    "EXEC PA_ENVIAR_DBMAIL " +
+                    "@DESTINATARIOS, @TEXTO_EMAIL, @ASUNTO_EMAIL, @PERFIL_EMAIL, " +
+                    "@DESTINATARIOS_CC, @DESTINATARIOS_CCO, @FORMATO_EMAIL, @IMPORTANCIA_EMAIL, " +
+                    "@CONFIDENCIALIDAD, @ARCHIVOS_ADJUNTOS",
+                    destinatariosParam,
+                    textoEmailParam,
+                    asuntoEmailParam,
+                    perfilEmailParam,
+                    destinatariosCcParam,
+                    destinatariosCcoParam,
+                    formatoEmailParam,
+                    importanciaEmailParam,
+                    confidencialidadParam,
+                    archivosAdjuntosParam
+                );
+            }
+            catch(Microsoft.Data.SqlClient.SqlException sqlEx)
+            {
+                Console.WriteLine($"[ERROR] Error al ejecutar PA_ENVIAR_DBMAIL: {sqlEx.Message}");
+                Console.WriteLine($"[ERROR] Detalles: {sqlEx}");
+            }
 
-            await _context.Database.ExecuteSqlRawAsync(
-                "EXEC @RETCODE = PA_ENVIAR_DBMAIL " +
-                "@DESTINATARIOS, @TEXTO_EMAIL, @ASUNTO_EMAIL, @PERFIL_EMAIL, " +
-                "@DESTINATARIOS_CC, @DESTINATARIOS_CCO, @FORMATO_EMAIL, @IMPORTANCIA_EMAIL, " +
-                "@CONFIDENCIALIDAD, @ARCHIVOS_ADJUNTOS, @OCULTAR_TEXTO, @REPLY_TO, @RETCODE OUTPUT",
-                destinatariosParam,
-                textoEmailParam,
-                asuntoEmailParam,
-                perfilEmailParam,
-                destinatariosCcParam,
-                destinatariosCcoParam,
-                formatoEmailParam,
-                importanciaEmailParam,
-                confidencialidadParam,
-                archivosAdjuntosParam,
-                ocultarTextoParam,
-                replyToParam,
-                retCodeParam
-            );
-
-
+            // Actualizar estado de la cabecera
             cabecera.FConfirmacion = fechaConfirmacion;
             cabecera.Estado = 4;
             cabecera.DesEstado = "Confirmado";
             _context.Recepciones_Cab.Update(cabecera);
 
-            await _context.SaveChangesAsync();
+            await _context.SaveChangesAsync(); // Guardamos el cambio de estado
 
-            await transaction.CommitAsync();
+            await transaction.CommitAsync(); // Confirmamos toda la transacción
             return NoContent();
         }
         catch (Exception ex)
