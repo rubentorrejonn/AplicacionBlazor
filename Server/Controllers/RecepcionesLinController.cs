@@ -250,8 +250,8 @@ public class RecepcionesLinController : ControllerBase
             }
 
             var paletsAnteriores = await _context.Palets
-            .Where(p => p.Albaran == albaran)
-                .ToListAsync();
+             .Where(p => p.Albaran == albaran)
+                 .ToListAsync();
             _context.Palets.RemoveRange(paletsAnteriores);
 
             await _context.SaveChangesAsync(); // Guardamos la eliminación de NSeries y Palets
@@ -367,47 +367,13 @@ public class RecepcionesLinController : ControllerBase
             cuerpoEmail.AppendLine("==========================================");
             cuerpoEmail.AppendLine("Referencia\tDescripcion\t\tCantidad Bien\tCantidad Mal");
             cuerpoEmail.AppendLine("-----------------------------------------");
+            var asuntoEmail = $"Confirmación ICP - Albarán {albaran} - Prueba {Guid.NewGuid().ToString().Substring(0, 5)}";
 
             foreach (var linea in request.Lineas)
             {
                 var descripcion = referenciasDict.GetValueOrDefault(linea.Referencia, "DESC NO DISPONIBLE");
 
-                cuerpoEmail.AppendLine($"{linea.Referencia}\t\t{descripcion}\t\t{linea.Bien ?? 0}\t\t{linea.Mal ?? 0}");
-            }
-
-            var destinatariosParam = new SqlParameter("@DESTINATARIOS", "practicas.soporte@icp.es");
-            var textoEmailParam = new SqlParameter("@TEXTO_EMAIL", cuerpoEmail.ToString());
-            var asuntoEmailParam = new SqlParameter("@ASUNTO_EMAIL", $"Confirmación ICP - Albarán {albaran}");
-            var perfilEmailParam = new SqlParameter("@PERFIL_EMAIL", null);
-            var destinatariosCcParam = new SqlParameter("@DESTINATARIOS_CC", "");
-            var destinatariosCcoParam = new SqlParameter("@DESTINATARIOS_CCO", "");
-            var formatoEmailParam = new SqlParameter("@FORMATO_EMAIL", "text");
-            var importanciaEmailParam = new SqlParameter("@IMPORTANCIA_EMAIL", "");
-            var confidencialidadParam = new SqlParameter("@CONFIDENCIALIDAD", "");
-            var archivosAdjuntosParam = new SqlParameter("@ARCHIVOS_ADJUNTOS", "");
-            try
-            {
-                await _context.Database.ExecuteSqlRawAsync(
-                    "EXEC PA_ENVIAR_DBMAIL " +
-                    "@DESTINATARIOS, @TEXTO_EMAIL, @ASUNTO_EMAIL, @PERFIL_EMAIL, " +
-                    "@DESTINATARIOS_CC, @DESTINATARIOS_CCO, @FORMATO_EMAIL, @IMPORTANCIA_EMAIL, " +
-                    "@CONFIDENCIALIDAD, @ARCHIVOS_ADJUNTOS",
-                    destinatariosParam,
-                    textoEmailParam,
-                    asuntoEmailParam,
-                    perfilEmailParam,
-                    destinatariosCcParam,
-                    destinatariosCcoParam,
-                    formatoEmailParam,
-                    importanciaEmailParam,
-                    confidencialidadParam,
-                    archivosAdjuntosParam
-                );
-            }
-            catch(Microsoft.Data.SqlClient.SqlException sqlEx)
-            {
-                Console.WriteLine($"[ERROR] Error al ejecutar PA_ENVIAR_DBMAIL: {sqlEx.Message}");
-                Console.WriteLine($"[ERROR] Detalles: {sqlEx}");
+                cuerpoEmail.AppendLine($"{linea.Referencia}\t\t{descripcion}\t\t{linea.Bien ?? 0}");
             }
 
             // Actualizar estado de la cabecera
@@ -416,16 +382,93 @@ public class RecepcionesLinController : ControllerBase
             cabecera.DesEstado = "Confirmado";
             _context.Recepciones_Cab.Update(cabecera);
 
-            await _context.SaveChangesAsync(); // Guardamos el cambio de estado
+             await _context.SaveChangesAsync(); // Guardamos el cambio de estado
+            try
+            {
+                // Obtener la cadena de conexión de tu contexto
+                var connectionString = _context.Database.GetConnectionString();
 
-            await transaction.CommitAsync(); // Confirmamos toda la transacción
+                using (var connection = new SqlConnection(connectionString))
+                {
+                    await connection.OpenAsync();
+
+                    using (var command = new SqlCommand("PA_ENVIAR_DBMAIL", connection))
+                    {
+                        command.CommandType = CommandType.StoredProcedure;
+
+                        command.Parameters.Add(new SqlParameter("@DESTINATARIOS", SqlDbType.VarChar, 1000) { Value = "practicas.soporte@icp.es" });
+                        command.Parameters.Add(new SqlParameter("@TEXTO_EMAIL", SqlDbType.NVarChar, -1) { Value = cuerpoEmail.ToString() });
+                        command.Parameters.Add(new SqlParameter("@ASUNTO_EMAIL", SqlDbType.VarChar, 200) { Value = $"Albarán {albaran}" });
+                        command.Parameters.Add(new SqlParameter("@PERFIL_EMAIL", SqlDbType.VarChar, 100) { Value = DBNull.Value });
+                        command.Parameters.Add(new SqlParameter("@DESTINATARIOS_CC", SqlDbType.VarChar, 1000) { Value = DBNull.Value });
+                        command.Parameters.Add(new SqlParameter("@DESTINATARIOS_CCO", SqlDbType.VarChar, 1000) { Value = DBNull.Value });
+                        command.Parameters.Add(new SqlParameter("@FORMATO_EMAIL", SqlDbType.VarChar, 20) { Value = "TEXT" });
+                        command.Parameters.Add(new SqlParameter("@IMPORTANCIA_EMAIL", SqlDbType.VarChar, 6) { Value = "Normal" });
+                        command.Parameters.Add(new SqlParameter("@CONFIDENCIALIDAD", SqlDbType.VarChar, 12) { Value = "Normal" });
+                        command.Parameters.Add(new SqlParameter("@ARCHIVOS_ADJUNTOS", SqlDbType.VarChar, 4000) { Value = DBNull.Value });
+
+                        // Parámetro para recoger el valor de retorno
+                        var retCodeParam = new SqlParameter();
+                        retCodeParam.Direction = ParameterDirection.ReturnValue;
+                        command.Parameters.Add(retCodeParam);
+
+                        await command.ExecuteNonQueryAsync();
+
+                        int retCode = (int)retCodeParam.Value;
+                        Console.WriteLine($"[DEBUG] RETCODE recibido: {retCode}");
+
+                        if (retCode != 0)
+                        {
+                            Console.WriteLine($"[ERROR] PA_ENVIAR_DBMAIL falló con RETCODE: {retCode}");
+                        }
+                        else
+                        {
+                            Console.WriteLine("[INFO] PA_ENVIAR_DBMAIL ejecutado correctamente (RETCODE: 0).");
+                        }
+                    }
+                }
+            }
+            catch (Microsoft.Data.SqlClient.SqlException sqlEx)
+            {
+                Console.WriteLine("");
+                Console.WriteLine("=== [C# ERROR DETALLADO SQL - PA_ENVIAR_DBMAIL] ===");
+                Console.WriteLine($"Mensaje: {sqlEx.Message}");
+                Console.WriteLine($"Número de Error SQL: {sqlEx.Number}");
+                Console.WriteLine($"Procedimiento: {sqlEx.Procedure}");
+                Console.WriteLine($"Línea: {sqlEx.LineNumber}");
+                Console.WriteLine("StackTrace (parcial):");
+                Console.WriteLine(sqlEx.StackTrace.Substring(0, Math.Min(500, sqlEx.StackTrace.Length)));
+                Console.WriteLine("=== [FIN ERROR SQL] ===");
+                Console.WriteLine("");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("");
+                Console.WriteLine("=== [C# ERROR GENERAL - PA_ENVIAR_DBMAIL] ===");
+                Console.WriteLine($"Mensaje: {ex.Message}");
+                Console.WriteLine("StackTrace (parcial):");
+                Console.WriteLine(ex.StackTrace.Substring(0, Math.Min(500, ex.StackTrace.Length)));
+                Console.WriteLine("=== [FIN ERROR GENERAL] ===");
+                Console.WriteLine("");
+            }
+
+            // Cierra el try principal aquí
+            await transaction.CommitAsync();
             return NoContent();
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
+            try
+            {
+                await transaction.RollbackAsync();
+            }
+            catch (Exception rollbackEx)
+            {
+                Console.WriteLine($"Error al hacer rollback: {rollbackEx}");
+            }
             Console.WriteLine($"Error en ConfirmarIcp: {ex}");
             return StatusCode(500, "Error interno al confirmar la recepción en ICP.");
         }
+
     }
 }
