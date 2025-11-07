@@ -59,6 +59,7 @@ public class OrdenSalidaLinController : ControllerBase
                     "EXEC @RETCODE = PA_GUARDAR_PEDIDO @PETICION, @REFERENCIA, @CANTIDAD, @RETCODE OUTPUT, @MENSAJE OUTPUT",
                     new SqlParameter("@PETICION", dto.Peticion),
                     new SqlParameter("@REFERENCIA", dto.Referencia),
+                    new SqlParameter("@CANTIDAD", dto.Cantidad),
                     retCodeParam,
                     mensajeParam
                 );
