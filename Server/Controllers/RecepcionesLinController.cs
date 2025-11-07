@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using System.Data;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -365,15 +366,13 @@ public class RecepcionesLinController : ControllerBase
             var cuerpoEmail = new StringBuilder();
             cuerpoEmail.AppendLine($"Confirmación de recepcion - Albarán {albaran}");
             cuerpoEmail.AppendLine("==========================================");
-            cuerpoEmail.AppendLine("Referencia\tDescripcion\t\tCantidad Bien\tCantidad Mal");
-            cuerpoEmail.AppendLine("-----------------------------------------");
+            cuerpoEmail.AppendLine("Referencia\tDescripcion\t\tCantidad Bien");
+            cuerpoEmail.AppendLine("----------------------------------------------------------------");
             var asuntoEmail = $"Confirmación ICP - Albarán {albaran} - Prueba {Guid.NewGuid().ToString().Substring(0, 5)}";
 
             foreach (var linea in request.Lineas)
             {
-                var descripcion = referenciasDict.GetValueOrDefault(linea.Referencia, "DESC NO DISPONIBLE");
-
-                cuerpoEmail.AppendLine($"{linea.Referencia}\t\t{descripcion}\t\t{linea.Bien ?? 0}");
+                cuerpoEmail.AppendLine($"{linea.Referencia}\t\t{linea.DesReferencia}\t\t\t{linea.Bien ?? 0}");
             }
 
             // Actualizar estado de la cabecera
@@ -383,6 +382,7 @@ public class RecepcionesLinController : ControllerBase
             _context.Recepciones_Cab.Update(cabecera);
 
              await _context.SaveChangesAsync(); // Guardamos el cambio de estado
+            await transaction.CommitAsync();
             try
             {
                 // Obtener la cadena de conexión de tu contexto
@@ -392,25 +392,22 @@ public class RecepcionesLinController : ControllerBase
                 {
                     await connection.OpenAsync();
 
-                    using (var command = new SqlCommand("PA_ENVIAR_DBMAIL", connection))
+                    using (var command = new SqlCommand("PA_RECEPCIONES_Y_DBMAIL", connection))
                     {
                         command.CommandType = CommandType.StoredProcedure;
 
-                        command.Parameters.Add(new SqlParameter("@DESTINATARIOS", SqlDbType.VarChar, 1000) { Value = "practicas.soporte@icp.es" });
-                        command.Parameters.Add(new SqlParameter("@TEXTO_EMAIL", SqlDbType.NVarChar, -1) { Value = cuerpoEmail.ToString() });
-                        command.Parameters.Add(new SqlParameter("@ASUNTO_EMAIL", SqlDbType.VarChar, 200) { Value = $"Albarán {albaran}" });
-                        command.Parameters.Add(new SqlParameter("@PERFIL_EMAIL", SqlDbType.VarChar, 100) { Value = DBNull.Value });
-                        command.Parameters.Add(new SqlParameter("@DESTINATARIOS_CC", SqlDbType.VarChar, 1000) { Value = DBNull.Value });
-                        command.Parameters.Add(new SqlParameter("@DESTINATARIOS_CCO", SqlDbType.VarChar, 1000) { Value = DBNull.Value });
-                        command.Parameters.Add(new SqlParameter("@FORMATO_EMAIL", SqlDbType.VarChar, 20) { Value = "TEXT" });
-                        command.Parameters.Add(new SqlParameter("@IMPORTANCIA_EMAIL", SqlDbType.VarChar, 6) { Value = "Normal" });
-                        command.Parameters.Add(new SqlParameter("@CONFIDENCIALIDAD", SqlDbType.VarChar, 12) { Value = "Normal" });
-                        command.Parameters.Add(new SqlParameter("@ARCHIVOS_ADJUNTOS", SqlDbType.VarChar, 4000) { Value = DBNull.Value });
+                        
 
-                        // Parámetro para recoger el valor de retorno
-                        var retCodeParam = new SqlParameter();
-                        retCodeParam.Direction = ParameterDirection.ReturnValue;
+                        command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = albaran });
+                        command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 1 });
+                        command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "Prueba" });
+                        command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "PruebaCultura" });
+
+
+                        var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
                         command.Parameters.Add(retCodeParam);
+                        command.Parameters.Add(mensajeParam);
 
                         await command.ExecuteNonQueryAsync();
 
@@ -453,7 +450,6 @@ public class RecepcionesLinController : ControllerBase
             }
 
             // Cierra el try principal aquí
-            await transaction.CommitAsync();
             return NoContent();
         }
         catch (Exception ex)
