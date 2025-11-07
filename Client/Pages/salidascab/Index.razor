@@ -43,9 +43,13 @@ else
                     <td>@scab.Telefono</td>
                     <td>@scab.FCreacion.ToShortDateString()</td>
                     <td>@scab.Estado</td>
-                    <button class="btn" style="background-color:turquoise">
-                        Vincular a pedido
-                    </button>
+                    <td>
+                        <a href="/pedidos?peticion=@scab.Peticion" class="btn btn-sm btn-primary">Hacer Pedido</a>
+                        @if (scab.Estado == 1)
+                        {
+                            <a href="/salidacab/confirmar/@scab.Peticion" class="btn btn-sm btn-success ms-1">Confirmar</a>
+                        }
+                    </td>
                 </tr>
             }
         </tbody>

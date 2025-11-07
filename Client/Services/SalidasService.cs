@@ -14,8 +14,15 @@ namespace UltimateProyect.Client.Services
             StockDisponible = new();
         }
 
+        public int? CurrentPeticion { get; private set; }
         public Dictionary<string, int> StockDisponible { get; set; }
         public Dictionary<string, OrdenSalidaLinDto> Carrito { get; set; }
+
+        public void SetCurrentPeticion(int peticion)
+        {
+            CurrentPeticion = peticion;
+            Carrito.Clear();
+        }
 
         public void ActualizarStock(Dictionary<string, int> stock)
         {
@@ -24,6 +31,9 @@ namespace UltimateProyect.Client.Services
 
         public void AgregarAlCarrito(string referencia, string desReferencia)
         {
+            if (CurrentPeticion == null)
+                throw new InvalidOperationException("Debe seleccionar una petición primero.");
+
             if (Carrito.ContainsKey(referencia))
             {
                 Carrito[referencia].Cantidad += 1;
@@ -32,13 +42,13 @@ namespace UltimateProyect.Client.Services
             {
                 Carrito[referencia] = new OrdenSalidaLinDto
                 {
+                    Peticion = CurrentPeticion.Value,
                     Referencia = referencia,
                     DesReferencia = desReferencia,
                     Cantidad = 1
                 };
             }
 
-            // Asegurar que no supere el stock
             var stockMax = StockDisponible.GetValueOrDefault(referencia, 0);
             if (Carrito[referencia].Cantidad > stockMax)
                 Carrito[referencia].Cantidad = stockMax;
@@ -46,24 +56,49 @@ namespace UltimateProyect.Client.Services
 
         public void Incrementar(string referencia)
         {
-            var stockMax = StockDisponible.GetValueOrDefault(referencia, 0);
-            if (Carrito[referencia].Cantidad < stockMax)
-                Carrito[referencia].Cantidad++;
+            if (CurrentPeticion == null)
+                throw new InvalidOperationException("Debe seleccionar una petición primero.");
+
+            if (Carrito.ContainsKey(referencia))
+            {
+                var stockMax = StockDisponible.GetValueOrDefault(referencia, 0);
+                if (Carrito[referencia].Cantidad < stockMax)
+                    Carrito[referencia].Cantidad++;
+            }
         }
 
         public void Decrementar(string referencia)
         {
-            if (Carrito[referencia].Cantidad > 1)
+            if (CurrentPeticion == null)
+                throw new InvalidOperationException("Debe seleccionar una petición primero.");
+
+            if (Carrito.ContainsKey(referencia) && Carrito[referencia].Cantidad > 1)
+            {
                 Carrito[referencia].Cantidad--;
+            }
         }
 
-        public void Eliminar(string referencia)
+        public void Remove(string referencia)
         {
-            Carrito.Remove(referencia);
+            if (Carrito.ContainsKey(referencia))
+                Carrito.Remove(referencia);
         }
 
         public void Clear() => Carrito.Clear();
 
-        public List<OrdenSalidaLinDto> ToLineasDto() => Carrito.Values.ToList();
+        public List<OrdenSalidaLinDto> ToLineasDto()
+        {
+            if (!CurrentPeticion.HasValue)
+                throw new InvalidOperationException("No se ha establecido una petición para crear las líneas.");
+
+            return Carrito.Values.Select((item, index) => new OrdenSalidaLinDto
+            {
+                Peticion = CurrentPeticion.Value,
+                Linea = index + 1,
+                Referencia = item.Referencia,
+                Cantidad = item.Cantidad,
+                DesReferencia = item.DesReferencia
+            }).ToList();
+        }
     }
 }
