@@ -17,9 +17,10 @@ public class OrdenSalidaCabController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<OrdenSalidaCab>>> GetOrdenSalidaCab()
+    public async Task<ActionResult<List<VistaOrdenSalidaCab>>> GetOrdenSalidaCab()
     {
-        return await _context.Orden_Salida_Cab.ToListAsync();
+        var cabeceras = await _context.V_OSC_ESTADO_DESCRIPCION.ToListAsync();
+        return Ok(cabeceras);
     }
 
     [HttpGet("{id}")]

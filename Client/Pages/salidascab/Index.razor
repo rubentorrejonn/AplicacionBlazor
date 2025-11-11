@@ -44,7 +44,10 @@ else
                     <td>@scab.FCreacion.ToShortDateString()</td>
                     <td>@scab.Estado</td>
                     <td>
-                        <a href="/pedidos?peticion=@scab.Peticion" class="btn btn-sm btn-primary">Hacer Pedido</a>
+                        @if (scab.Estado < 1)
+                        {
+                            <a href="/pedidos?peticion=@scab.Peticion" class="btn btn-sm btn-primary">Hacer Pedido</a>
+                        }
                         @if (scab.Estado == 1)
                         {
                             <a href="/salidacab/confirmar/@scab.Peticion" class="btn btn-sm btn-success ms-1">Confirmar</a>
@@ -58,10 +61,10 @@ else
 
 
 @code {
-    private OrdenSalidaCab[]? salidaCab;
+    private VistaOrdenSalidaCab[]? salidaCab;
     protected override async Task OnInitializedAsync()
     {
-        salidaCab = await Http.GetFromJsonAsync<OrdenSalidaCab[]>("api/ordensalidacab");
+        salidaCab = await Http.GetFromJsonAsync < VistaOrdenSalidaCab[]> ("api/ordensalidacab");
     }
     private void OrdenSalida(OrdenSalidaCab salida)
     {
@@ -77,6 +80,6 @@ else
         if (!confirm) return;
 
         await Http.DeleteAsync($"api/ordensalidacab/{peticion}");
-        salidaCab = await Http.GetFromJsonAsync<OrdenSalidaCab[]>("api/ordensalidacab");
+        salidaCab = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/ordensalidacab");
     }
 }

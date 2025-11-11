@@ -241,7 +241,7 @@ public class RecepcionesLinController : ControllerBase
                     .ToListAsync();
                 _context.NSeries_Recepciones.RemoveRange(nseriesExistentes);
 
-                // Opcional: Si también gestionas NSeries_Seguimiento aquí, descomenta:
+                // Si también gestionas NSeries_Seguimiento aquí,
                 /*
                 var seguimientosExistentes = await _context.NSeries_Seguimiento
                     .Where(ns => paletsDelAlbaran.Contains(ns.Palet))
@@ -385,7 +385,6 @@ public class RecepcionesLinController : ControllerBase
             await transaction.CommitAsync();
             try
             {
-                // Obtener la cadena de conexión de tu contexto
                 var connectionString = _context.Database.GetConnectionString();
 
                 using (var connection = new SqlConnection(connectionString))

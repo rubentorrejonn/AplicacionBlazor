@@ -56,10 +56,13 @@ public class OrdenSalidaLinController : ControllerBase
                 var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
 
                 await _context.Database.ExecuteSqlRawAsync(
-                    "EXEC @RETCODE = PA_GUARDAR_PEDIDO @PETICION, @REFERENCIA, @CANTIDAD, @RETCODE OUTPUT, @MENSAJE OUTPUT",
+                    "EXEC @RETCODE = PA_GUARDAR_PEDIDO @PETICION, @REFERENCIA, @CANTIDAD, @INVOKER, @USUARIO, @CULTURA, @RETCODE OUTPUT, @MENSAJE OUTPUT",
                     new SqlParameter("@PETICION", dto.Peticion),
                     new SqlParameter("@REFERENCIA", dto.Referencia),
                     new SqlParameter("@CANTIDAD", dto.Cantidad),
+                    new SqlParameter("@INVOKER", ""),
+                    new SqlParameter("@USUARIO", ""),
+                    new SqlParameter("@CULTURA", ""),
                     retCodeParam,
                     mensajeParam
                 );
