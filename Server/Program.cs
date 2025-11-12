@@ -1,42 +1,51 @@
-using Microsoft.AspNetCore.ResponseCompression;
+// Server/Program.cs
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using UltimateProyect.Server.Data;
+using UltimateProyect.Shared.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
-builder.Services.AddControllersWithViews();
-builder.Services.AddRazorPages();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/login";
+        options.LogoutPath = "/logout";
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("OperarioOnly", policy => policy.RequireRole("Operario"));
+    options.AddPolicy("ICPOnly", policy => policy.RequireRole("ICP"));
+});
+
 builder.Services.AddControllers();
+builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseWebAssemblyDebugging();
-}
-else
+if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
-
-app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
+app.UseBlazorFrameworkFiles();
 
 app.UseRouting();
 
+app.UseAuthentication(); 
+app.UseAuthorization(); 
 
-app.MapRazorPages();
 app.MapControllers();
+app.MapRazorPages();
 app.MapFallbackToFile("index.html");
 
 app.Run();

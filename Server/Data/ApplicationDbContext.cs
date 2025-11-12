@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using UltimateProyect.Server.Models;
 using UltimateProyect.Shared.Models;
 
 namespace UltimateProyect.Server.Data;
@@ -19,10 +20,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<Palets> Palets { get; set; }
     public DbSet<NSeriesRecepciones> NSeries_Recepciones { get; set; }
     public DbSet<NSeriesSeguimiento> NSeries_Seguimiento { get; set; }
-    public DbSet<VistaOrdenSalidaCab> V_OSC_ESTADO_DESCRIPCION { get; set; } 
+    public DbSet<VistaOrdenSalidaCab> V_OSC_ESTADO_DESCRIPCION { get; set; }
+    public DbSet<Usuarios> Usuarios { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        base.OnModelCreating(modelBuilder);
         modelBuilder.Entity<RecepcionesCab>()
             .HasKey(r => r.Albaran);
 
@@ -32,6 +35,9 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<Referencias>()
             .HasKey(r => r.Referencia);
+
+        modelBuilder.Entity<Usuarios>()
+            .HasKey(u => u.IdUsuario);
 
         modelBuilder.Entity<Palets>()
             .HasKey(p => p.Palet);
