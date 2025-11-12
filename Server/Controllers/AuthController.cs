@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authentication;
+﻿// Server/Controllers/AuthController.cs
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -46,16 +47,17 @@ public class AuthController : ControllerBase
             }
 
             var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.Name, user.UserName!),
-            new Claim(ClaimTypes.NameIdentifier, user.IdUsuario.ToString()),
-            new Claim(ClaimTypes.Role, user.Role ?? "Usuario")
-        };
+            {
+                new Claim(ClaimTypes.Name, user.UserName!),
+                new Claim(ClaimTypes.NameIdentifier, user.IdUsuario.ToString()),
+                new Claim(ClaimTypes.Role, user.Role ?? "Usuario")
+            };
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(claimsIdentity), new AuthenticationProperties
             {
-                IsPersistent = model.RememberMe
+                IsPersistent = model.RememberMe,
+                ExpiresUtc = DateTime.UtcNow.AddMinutes(60)
             });
 
             return Ok(new LoginResultDto
@@ -68,25 +70,11 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            // Esto te mostrará el error real en la consola del servidor
             Console.WriteLine($"Error en AuthController.Login: {ex}");
             return StatusCode(500, new LoginResultDto { Success = false, Message = "Error interno del servidor." });
         }
     }
 
-    [HttpGet("test")]
-    public async Task<ActionResult> Test()
-    {
-        try
-        {
-            var users = await _context.Usuarios.ToListAsync();
-            return Ok(users);
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, $"Error: {ex.Message}");
-        }
-    }
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {

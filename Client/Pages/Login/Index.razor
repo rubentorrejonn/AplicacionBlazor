@@ -1,8 +1,8 @@
-﻿<!-- Client/Pages/Login.razor -->
-@page "/login"
+﻿@page "/login"
 @using UltimateProyect.Shared.Models
 @inject HttpClient Http
 @inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
 
 <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
     <InputText @bind-Value="loginModel.Username" placeholder="Usuario" class="form-control mb-2" />
@@ -10,38 +10,19 @@
     <button type="submit" class="btn btn-primary">Entrar</button>
 </EditForm>
 
-<!-- Modal simple -->
-<div class="modal @(showModal ? "show d-block" : "d-none")" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">¡Bienvenido!</h5>
-            </div>
-            <div class="modal-body">
-                <p>Has iniciado sesión correctamente, @loginModel.Username.</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-@if (showModal)
-{
-    <div class="modal-backdrop show"></div>
-}
-
 @code {
     private LoginRequestDto loginModel = new();
-    private bool showModal = false;
 
     private async Task HandleLogin()
     {
         var response = await Http.PostAsJsonAsync("api/auth/login", loginModel);
         if (response.IsSuccessStatusCode)
         {
-            showModal = true;
-            StateHasChanged();
-            await Task.Delay(2000);
-            Nav.NavigateTo("/");
+            var result = await response.Content.ReadFromJsonAsync<LoginResultDto>();
+            if (result?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("eval", "window.location.href = '/'");
+            }
         }
     }
 }

@@ -1,8 +1,10 @@
 ﻿@page "/refpage/edit/{Referencia}"
+@using Microsoft.AspNetCore.Authorization
 @using UltimateProyect.Shared.Models
 @inject HttpClient Http
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
+@attribute [Authorize(Policy = "OperarioOrICP")]
 
 <h3>Editar Referencia: @Referencia</h3>
 

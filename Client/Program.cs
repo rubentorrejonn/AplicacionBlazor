@@ -16,8 +16,9 @@ builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>
 builder.Services.AddAuthorizationCore(options =>
 {
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("OperarioOnly", policy => policy.RequireRole("Operario"));
-    options.AddPolicy("ICPOnly", policy => policy.RequireRole("ICP"));
+    options.AddPolicy("Operario", policy => policy.RequireRole("Operario"));
+    options.AddPolicy("ICP", policy => policy.RequireRole("ICP"));
+
 });
 builder.Services.AddBlazorBootstrap();
 

@@ -12,12 +12,12 @@ namespace UltimateProyect.Shared.Models
         [Column("ID_ESTADO")]
         public int IdEstado { get; set; }
         [Column("CAMPO")]
-        public string Campo { get; set; }
+        public string Campo { get; set; } = null!;
         [Column("TABLA")]
-        public string Tabla { get; set; }
+        public string Tabla { get; set; } = null!;
         [Column("ESTADO")]
         public int Estado { get; set; }
         [Column("DESCRIPCION")]
-        public string Descripcion { get; set; }
+        public string Descripcion { get; set; } = null!;
     }
 }

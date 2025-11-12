@@ -1,10 +1,12 @@
 ﻿@page "/pedidos"
+@using Microsoft.AspNetCore.Authorization
 @using UltimateProyect.Shared.Models
 @using UltimateProyect.Client.Services
 @inject HttpClient Http
 @inject SalidasService SalidasService
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
+@attribute [Authorize(Policy = "OperarioOrICP")]
 
 
 <h3>Crear Líneas de Pedido - Petición @PeticionActual</h3>

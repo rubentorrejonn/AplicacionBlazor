@@ -1,7 +1,9 @@
 ﻿@page "/refpage/create"
+@using Microsoft.AspNetCore.Authorization
 @using UltimateProyect.Shared.Models
 @inject HttpClient Http
 @inject NavigationManager Nav
+@attribute [Authorize(Policy = "OperarioOrICP")]
 
 <h3>Crear Nueva Referencia</h3>
 

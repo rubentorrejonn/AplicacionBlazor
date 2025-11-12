@@ -1,8 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using UltimateProyect.Server.Models;
-using UltimateProyect.Shared.Models; 
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using UltimateProyect.Server.Data;
+using UltimateProyect.Shared.Models;
 
 namespace UltimateProyect.Server.Controllers;
 
@@ -10,51 +9,45 @@ namespace UltimateProyect.Server.Controllers;
 [Route("api/[controller]")]
 public class UserController : ControllerBase
 {
-    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ApplicationDbContext _context;
 
-    public UserController(UserManager<ApplicationUser> userManager)
+    public UserController(ApplicationDbContext context)
     {
-        _userManager = userManager;
+        _context = context;
     }
 
-    [HttpGet("info")] // GET /api/user/info
-    // ❌ NO usar [Authorize] aquí si quieres que devuelva un JSON coherente
+    [HttpGet("info")]
     public async Task<ActionResult<UserInfoResponseDto>> GetUserInfo()
     {
-        // ✅ Comprobar si el usuario está autenticado
         if (!User.Identity.IsAuthenticated)
         {
-            // ✅ Devolver JSON con IsAuthenticated = false
             return Ok(new UserInfoResponseDto
             {
                 IsAuthenticated = false,
                 UserName = null,
                 UserId = null,
-                Roles = new List<string>() // O new string[0]
+                Roles = null
             });
         }
 
-        // ✅ Si está autenticado, obtener datos
-        var user = await _userManager.GetUserAsync(User);
+        var user = await _context.Usuarios.FirstOrDefaultAsync(u => u.UserName == User.Identity.Name);
         if (user == null)
         {
-            // Caso raro: autenticado pero no se encuentra el usuario
             return Ok(new UserInfoResponseDto
             {
                 IsAuthenticated = false,
                 UserName = null,
                 UserId = null,
-                Roles = new List<string>()
+                Roles = null
             });
         }
 
-        var roles = await _userManager.GetRolesAsync(user);
         var userInfo = new UserInfoResponseDto
         {
             IsAuthenticated = true,
             UserName = user.UserName,
-            UserId = user.Id,
-            Roles = roles.ToList()
+            UserId = user.IdUsuario,
+            Roles = user.Role
         };
 
         return Ok(userInfo);

@@ -2,9 +2,9 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using UltimateProyect.Server.Data;
-using UltimateProyect.Shared.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -17,12 +17,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("OperarioOnly", policy => policy.RequireRole("Operario"));
-    options.AddPolicy("ICPOnly", policy => policy.RequireRole("ICP"));
-});
+builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
 builder.Services.AddRazorPages();
@@ -41,8 +36,8 @@ app.UseBlazorFrameworkFiles();
 
 app.UseRouting();
 
-app.UseAuthentication(); 
-app.UseAuthorization(); 
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 app.MapRazorPages();

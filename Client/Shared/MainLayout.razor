@@ -1,5 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
+@inject IJSRuntime JSRuntime
 
 <CascadingAuthenticationState>
     <div class="page">
@@ -11,11 +12,11 @@
             <div class="top-row px-4">
                 <AuthorizeView>
                     <Authorized>
-                        <span class="text-white">Hola, @context.User.Identity.Name!</span>
-                        <button class="btn btn-link text-white" @onclick="Logout">Salir</button>
+                        <span class="text-black">@context.User.Identity.Name</span>
+                        <button class="btn btn-link text-blue" @onclick="Logout">Salir</button>
                     </Authorized>
                     <NotAuthorized>
-                        <a href="/login" class="btn btn-link text-white">Entrar</a>
+                        <a href="/login" class="btn btn-link text-blue">Entrar</a>
                     </NotAuthorized>
                 </AuthorizeView>
             </div>
@@ -34,6 +35,11 @@
     private async Task Logout()
     {
         await Http.PostAsync("api/auth/logout", null);
-        Nav.NavigateTo("/login");
+        await ReloadPage();
+    }
+
+    private async Task ReloadPage()
+    {
+        await JSRuntime.InvokeVoidAsync("location.reload");
     }
 }

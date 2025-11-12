@@ -1,9 +1,11 @@
 ﻿@page "/refpage"
+@using Microsoft.AspNetCore.Authorization
 @using UltimateProyect.Shared.Models
 @using UltimateProyect.Client.Services
 @inject HttpClient Http
 @inject RecepcionService RecepcionService
 @inject IJSRuntime JSRuntime
+@attribute [Authorize(Policy = "Operario")]
 
 <h3>Referencias Disponibles</h3>
 
