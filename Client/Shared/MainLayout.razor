@@ -1,8 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
-@using System.Security.Claims
 
-<CascadingAuthenticationState> 
+<CascadingAuthenticationState>
     <div class="page">
         <div class="sidebar">
             <NavMenu />
@@ -12,11 +11,11 @@
             <div class="top-row px-4">
                 <AuthorizeView>
                     <Authorized>
-                        <span class="text-white">Hola, @context.User.Identity.Name! (Roles: @string.Join(", ", context.User.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value)))</span>
-                        <a href="logout" class="btn btn-link text-white">Salir</a>
+                        <span class="text-white">Hola, @context.User.Identity.Name!</span>
+                        <button class="btn btn-link text-white" @onclick="Logout">Salir</button>
                     </Authorized>
                     <NotAuthorized>
-                        <a href="login" class="btn btn-link text-blue">Entrar</a>
+                        <a href="/login" class="btn btn-link text-white">Entrar</a>
                     </NotAuthorized>
                 </AuthorizeView>
             </div>
@@ -27,3 +26,14 @@
         </main>
     </div>
 </CascadingAuthenticationState>
+
+@code {
+    [Inject] public HttpClient Http { get; set; } = default!;
+    [Inject] public NavigationManager Nav { get; set; } = default!;
+
+    private async Task Logout()
+    {
+        await Http.PostAsync("api/auth/logout", null);
+        Nav.NavigateTo("/login");
+    }
+}

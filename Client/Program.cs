@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using UltimateProyect.Client;
 using Microsoft.AspNetCore.Components.Authorization;
 using UltimateProyect.Client.Services;
+using BlazorBootstrap;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -18,5 +19,6 @@ builder.Services.AddAuthorizationCore(options =>
     options.AddPolicy("OperarioOnly", policy => policy.RequireRole("Operario"));
     options.AddPolicy("ICPOnly", policy => policy.RequireRole("ICP"));
 });
+builder.Services.AddBlazorBootstrap();
 
 await builder.Build().RunAsync();
