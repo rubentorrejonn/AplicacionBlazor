@@ -80,5 +80,6 @@ public class AuthController : ControllerBase
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return Ok(new { Message = "Sesión cerrada correctamente." });
+
     }
 }

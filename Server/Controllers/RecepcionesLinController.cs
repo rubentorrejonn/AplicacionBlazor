@@ -398,9 +398,9 @@ public class RecepcionesLinController : ControllerBase
                         
 
                         command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = albaran });
-                        command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 1 });
-                        command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "Prueba" });
-                        command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "PruebaCultura" });
+                        command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
+                        command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
+                        command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
 
 
                         var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
@@ -465,5 +465,52 @@ public class RecepcionesLinController : ControllerBase
             return StatusCode(500, "Error interno al confirmar la recepción en ICP.");
         }
 
+    }
+    [HttpPost("asignar-stock/{peticion}")]
+    public async Task<IActionResult> AsignarStock(int peticion)
+    {
+        try
+        {
+            var connectionString = _context.Database.GetConnectionString();
+
+            using (var connection = new SqlConnection(connectionString))
+            {
+                await connection.OpenAsync();
+
+                using (var command = new SqlCommand("PA_ASIGNAR_STOCK", connection))
+                {
+                    command.CommandType = CommandType.StoredProcedure;
+
+                    // Parámetros de entrada
+                    command.Parameters.Add(new SqlParameter("@PETICION", SqlDbType.Int) { Value = peticion });
+                    command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 }); 
+                    command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = ""});
+                    command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
+
+                    // Parámetros de salida
+                    var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                    var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
+
+                    command.Parameters.Add(retCodeParam);
+                    command.Parameters.Add(mensajeParam);
+
+                    await command.ExecuteNonQueryAsync();
+
+                    int retCode = (int)retCodeParam.Value;
+                    string mensaje = (string)mensajeParam.Value;
+
+                    if (retCode != 0)
+                    {
+                        return BadRequest(new { Message = mensaje });
+                    }
+
+                    return Ok(new { Message = mensaje });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { Message = $"Error al asignar stock: {ex.Message}" });
+        }
     }
 }
