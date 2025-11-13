@@ -9,7 +9,7 @@ GO
 	VSS:				E:\DevOps\PRACTICAS\FCT_PRACTICAS\2025\FCT_OCT_1\SQL\PROCEDIMIENTOS ALMACENADOS
 	USO:				##VISUAL##
 
-	FUNCIONAMIENTO:			Comprueba que hay stock de esa referencia en los palets y los deja en un estado "OCUPADO"
+	FUNCIONAMIENTO:			Comprueba que hay stock de esa referencia en los palets y los deja en un estado "RESERVADO"
 
 	PARAMETROS:			(OPCIONAL)
 		PARAMETRO1 		INPUT	EXPLICACION
@@ -21,7 +21,7 @@ GO
 --	EXPLICACIÓN:	
 ------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-CREATE PROCEDURE PA_ASIGNAR_STOCK
+ALTER PROCEDURE PA_ASIGNAR_STOCK
 	
 	@PETICION	INT,
 
@@ -43,6 +43,7 @@ BEGIN TRY
 	DECLARE @REFERENCIA VARCHAR(30);
 	DECLARE @CANTIDAD_REQUERIDA INT;
 	DECLARE @CANTIDAD_ASIGNADA INT;
+	DECLARE @CANTIDAD_DISPONIBLE INT;
 	DECLARE @PALET INT;
 
 	--COMPROBACIONES
@@ -51,16 +52,11 @@ BEGIN TRY
 		SET @MENSAJE = 'EL PARAMETRO ' + CAST(@PETICION AS VARCHAR) + ' ES REQUERIDO.'
 		SET @RETCODE = 1
 	END
-	IF @CANTIDAD_ASIGNADA < @CANTIDAD_REQUERIDA
-	BEGIN
-		SET @MENSAJE = 'NO HAY SUFICIENTE STOCK DISPONIBLE PARA LA REFERENCIA ' + @REFERENCIA
-		SET @RETCODE = 1
-	END
 	----------------------------------------------------------------------------------------------------------------------------------------------
-	IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
+	/*IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
 	BEGIN
 		BEGIN TRANSACTION TR_NOMBRE_TRANSACTION
-	END
+	END*/
 	----------------------------------------------------------------------------------------------------------------------------------------------
 
 	--OPERACIONES
@@ -89,15 +85,51 @@ BEGIN TRY
 			REFERENCIA = @REFERENCIA AND ESTADO = '1'
 		ORDER BY
 			PALET
-	END
+		OPEN CUR_PALETS;
 
+		FETCH NEXT FROM CUR_PALETS INTO @PALET, @CANTIDAD_DISPONIBLE;
+		WHILE @@FETCH_STATUS = 0 AND @CANTIDAD_ASIGNADA < @CANTIDAD_REQUERIDA
+		BEGIN
+			--ASIGNAR EL PALET (CAMBIAR A ESTADO '3')
+			UPDATE
+				 PALETS
+			SET
+				 ESTADO = '3'
+			WHERE
+				PALET = @PALET
+			UPDATE
+				ORDEN_SALIDA_CAB
+			SET
+				ESTADO = '2'
+			WHERE
+				PETICION = @PETICION
+
+			-- ACTUALIZAR CANTIDAD ASIGNADA
+			SET @CANTIDAD_ASIGNADA = @CANTIDAD_ASIGNADA + @CANTIDAD_DISPONIBLE
+			FETCH NEXT FROM CUR_PALETS INTO @PALET, @CANTIDAD_DISPONIBLE;
+		END
+
+		CLOSE CUR_PALETS;
+		DEALLOCATE CUR_PALETS;
+		
+		IF @CANTIDAD_ASIGNADA < @CANTIDAD_REQUERIDA
+		BEGIN
+			SET @MENSAJE = 'NO HAY SUFICIENTE STOCK DISPONIBLE PARA LA REFERENCIA ' + @REFERENCIA
+			SET @RETCODE = 1
+			RETURN @RETCODE
+		END
+
+		FETCH NEXT FROM CUR_SALIDA INTO @REFERENCIA, @CANTIDAD_REQUERIDA
+	END
+	CLOSE CUR_SALIDA;
+	DEALLOCATE CUR_SALIDA;
 		
 	
 	----------------------------------------------------------------------------------------------------------------------------------------------
-	IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
+	/*IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
 	BEGIN
 		COMMIT TRANSACTION TR_NOMBRE_TRANSACTION
-	END
+	END*/
 	----------------------------------------------------------------------------------------------------------------------------------------------
 
 
@@ -107,10 +139,10 @@ BEGIN TRY
 END TRY
 BEGIN CATCH
 	----------------------------------------------------------------------------------------------------------------------------------------------
-	IF @N_TRANS = 0 AND @@TRANCOUNT > 0				-- Si hay una transacción por encima no hacemos nada
+	/*IF @N_TRANS = 0 AND @@TRANCOUNT > 0				-- Si hay una transacción por encima no hacemos nada
 	BEGIN
 		ROLLBACK TRANSACTION TR_NOMBRE_TRANSACTION
-	END
+	END*/
 	----------------------------------------------------------------------------------------------------------------------------------------------
 	IF @MENSAJE = '' 
 	BEGIN
