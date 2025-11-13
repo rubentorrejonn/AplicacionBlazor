@@ -90,8 +90,8 @@ public class OrdenSalidaLinController : ControllerBase
         }
     }
 
-    [HttpGet("{peticion}")]
-    public async Task<ActionResult<List<OrdenSalidaLinDto>>> GetOrdenSalidaLin(int peticion)
+    [HttpGet]
+    public async Task<ActionResult<List<OrdenSalidaLinDto>>> GetOrdenSalidaLin([FromQuery] int peticion)
     {
         var lineas = await _context.Orden_Salida_Lin
             .Where(l => l.Peticion == peticion)

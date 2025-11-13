@@ -1,4 +1,4 @@
-﻿@page "/pedidos"
+﻿@page "/edit"
 @using Microsoft.AspNetCore.Authorization
 @using UltimateProyect.Shared.Models
 @using UltimateProyect.Client.Services
@@ -6,9 +6,9 @@
 @inject SalidasService SalidasService
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
+@attribute [Authorize(Policy = "Operario")]
 
-
-<h3>Crear Líneas de Pedido - Petición @PeticionActual</h3>
+<h3>Editar Líneas de Pedido - Petición @PeticionActual</h3>
 
 @if (PeticionActual == null)
 {
@@ -54,7 +54,7 @@ else
         </table>
 
         <button class="btn btn-success" @onclick="CrearLineasPedido"
-        disabled="@(SalidasService.Carrito.Values.Any(x => x.Cantidad > SalidasService.StockDisponible.GetValueOrDefault(x.Referencia, 0)))">
+                disabled="@(SalidasService.Carrito.Values.Any(x => x.Cantidad > SalidasService.StockDisponible.GetValueOrDefault(x.Referencia, 0)))">
             Crear Líneas de Pedido
         </button>
         <button class="btn btn-secondary ms-2" @onclick="SalidasService.Clear">Vaciar carrito</button>
@@ -84,7 +84,7 @@ else
                         <small class="text-muted">Stock: @stock</small>
                     </div>
                     <button class="btn btn-sm btn-success"
-                    @onclick="() => SalidasService.AgregarAlCarrito(refe.Referencia, refe.DesReferencia)">
+                            @onclick="() => SalidasService.AgregarAlCarrito(refe.Referencia, refe.DesReferencia)">
                         +
                     </button>
                 </div>
@@ -100,7 +100,6 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-
         if (string.IsNullOrEmpty(peticion) || !int.TryParse(peticion, out var peticionId))
         {
             PeticionActual = null;
@@ -110,13 +109,24 @@ else
         PeticionActual = peticionId;
         SalidasService.SetCurrentPeticion(peticionId);
 
+        var lineasExistentes = await Http.GetFromJsonAsync<List<OrdenSalidaLinDto>>($"api/ordensalidalin?peticion={peticionId}");
+        foreach (var linea in lineasExistentes)
+        {
+            var stocki = SalidasService.StockDisponible.GetValueOrDefault(linea.Referencia, 0);
+            if (stocki > 0)
+            {
+                SalidasService.AgregarAlCarrito(linea.Referencia, linea.DesReferencia);
+                SalidasService.Carrito[linea.Referencia].Cantidad = linea.Cantidad;
+            }
+        }
+
         referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
 
         var stock = await Http.GetFromJsonAsync<Dictionary<string, int>>("api/Palets/stock");
         SalidasService.ActualizarStock(stock ?? new());
     }
 
-    private async Task CrearLineasPedido() 
+    private async Task CrearLineasPedido()
     {
         var lineas = SalidasService.ToLineasDto();
         if (!lineas.Any())
@@ -140,7 +150,7 @@ else
             await Http.PostAsJsonAsync("api/OrdenSalidaLin", lineas);
             await JSRuntime.InvokeVoidAsync("alert", "Líneas de pedido creadas correctamente.");
             SalidasService.Clear();
-            Nav.NavigateTo("/salidacab"); 
+            Nav.NavigateTo("/salidacab");
         }
         catch (Exception ex)
         {

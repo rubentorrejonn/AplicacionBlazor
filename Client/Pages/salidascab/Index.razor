@@ -51,6 +51,11 @@ else
                         @if (scab.Estado == 1)
                         {
                             <button class="btn btn-sm btn-success ms-1" @onclick="() => AsignarStock(scab.Peticion)">Solicitar</button>
+                            <a href="/edit?peticion=@scab.Peticion" class="btn btn-sm btn-warning ms-1">Editar</a>
+                        }
+                        @if (scab.Estado == 3)
+                        {
+                            
                         }
                     </td>
                 </tr>
