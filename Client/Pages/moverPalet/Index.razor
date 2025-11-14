@@ -22,6 +22,7 @@ else
                 <th>Artículo</th>
                 <th>Cantidad</th>
                 <th>Ubicación</th>
+                <th>Acción</th>
             </tr>
         </thead>
         <tbody>
@@ -33,6 +34,9 @@ else
                     <td>@palet.DesReferencia</td>
                     <td>@palet.Cantidad</td>
                     <td>@palet.Ubicacion</td>
+                    <td>
+                        <a href="/moverpalet/@palet.Palet" class="btn btn-sm btn-info">Mover</a>
+                    </td>
                 </tr>
             }
         </tbody>
