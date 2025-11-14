@@ -68,7 +68,7 @@ public class OrdenSalidaLinController : ControllerBase
                 );
 
                 var retCode = (int)retCodeParam.Value;
-                var mensaje = (string)mensajeParam.Value;
+                var mensaje = Convert.ToString(mensajeParam.Value);
 
                 if (retCode != 0)
                 {

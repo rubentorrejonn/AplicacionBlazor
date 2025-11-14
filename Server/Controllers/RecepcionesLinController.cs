@@ -497,7 +497,7 @@ public class RecepcionesLinController : ControllerBase
                     await command.ExecuteNonQueryAsync();
 
                     int retCode = (int)retCodeParam.Value;
-                    string mensaje = (string)mensajeParam.Value;
+                    string mensaje = mensajeParam.Value as string ?? "";
 
                     if (retCode != 0)
                     {
