@@ -21,6 +21,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<NSeriesRecepciones> NSeries_Recepciones { get; set; }
     public DbSet<NSeriesSeguimiento> NSeries_Seguimiento { get; set; }
     public DbSet<VistaOrdenSalidaCab> V_OSC_ESTADO_DESCRIPCION { get; set; }
+    public DbSet<VistaPaletsReservados> V_MOVIMIENTO_PALETS { get; set; }
     public DbSet<Usuarios> Usuarios { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -46,6 +47,11 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasNoKey();
             entity.ToView("V_OSC_ESTADO_DESCRIPCION");
+        });
+        modelBuilder.Entity<VistaPaletsReservados>(entity =>
+        {
+            entity.HasNoKey();
+            entity.ToView("V_MOVIMIENTO_PALETS");
         });
 
         modelBuilder.Entity<NSeriesSeguimiento>()

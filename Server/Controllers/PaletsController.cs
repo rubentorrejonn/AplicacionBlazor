@@ -9,12 +9,20 @@ namespace UltimateProyect.Server.Controllers
     [ApiController]
     public class PaletsController : ControllerBase
     {
-            private readonly ApplicationDbContext _context;
+        private readonly ApplicationDbContext _context;
 
-            public PaletsController(ApplicationDbContext context)
-            {
-                _context = context;
-            }
+        public PaletsController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
+        [HttpGet("disponibles")]
+        public async Task <ActionResult<List<VistaPaletsReservados>>> getPaletsDisponibles()
+        {
+            var palets = await _context.V_MOVIMIENTO_PALETS
+                .Where(p => p.Estado == 3)
+                .ToListAsync();
+            return Ok(palets);
+        }
         [HttpGet("stock")]
         public async Task<ActionResult<Dictionary<string, int>>> getStockDisponible()
         {

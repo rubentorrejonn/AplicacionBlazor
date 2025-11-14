@@ -1,0 +1,49 @@
+﻿@page "/moverpalets"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+
+<h3>Lista de Palets Disponibles</h3>
+
+@if (palets == null)
+{
+    <p>Cargando...</p>
+}
+else if (!palets.Any())
+{
+    <p>No hay palets disponibles.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Palet</th>
+                <th>Referencia</th>
+                <th>Artículo</th>
+                <th>Cantidad</th>
+                <th>Ubicación</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var palet in palets)
+            {
+                <tr>
+                    <td>@palet.Palet</td>
+                    <td>@palet.Referencia</td>
+                    <td>@palet.DesReferencia</td>
+                    <td>@palet.Cantidad</td>
+                    <td>@palet.Ubicacion</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<VistaPaletsReservados>? palets;
+
+    protected override async Task OnInitializedAsync()
+    {
+        palets = await Http.GetFromJsonAsync<List<VistaPaletsReservados>>("api/palets/disponibles");
+    }
+}
