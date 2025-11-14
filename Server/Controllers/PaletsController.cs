@@ -22,14 +22,19 @@ namespace UltimateProyect.Server.Controllers
 
         }
         [HttpGet("stock")]
-        public async Task<ActionResult<Dictionary<string, int>>> getStockDisponible()
+        public async Task<ActionResult<Dictionary<string, int>>> GetStockDisponible()
         {
-                var stock = await _context.Palets
-                    .Where(p => p.Estado == 1)
-                    .GroupBy(p => p.Referencia)
-                    .ToDictionaryAsync(g => g.Key, g => g.Sum(p => p.Cantidad));
+            var stock = await _context.Palets
+                .Where(p => p.Estado == 1)
+                .Join(_context.Ubicaciones,
+                      palet => palet.Ubicacion,
+                      ubicacion => ubicacion.Ubicacion,
+                      (palet, ubicacion) => new { palet, ubicacion })
+                .Where(x => x.ubicacion.StatusUbi == 1)
+                .GroupBy(x => x.palet.Referencia)
+                .ToDictionaryAsync(g => g.Key, g => g.Sum(x => x.palet.Cantidad));
 
-                return Ok(stock);
+            return Ok(stock);
         }
     }
 }

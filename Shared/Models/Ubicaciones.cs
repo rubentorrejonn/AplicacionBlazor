@@ -18,5 +18,7 @@ namespace UltimateProyect.Shared.Models
         public string Calle { get; set; } = null!;
         [Column("POSICION")]
         public int Posicion { get; set; }
+        [Column("STATUS_UBI")]
+        public int StatusUbi { get; set; }
     }
 }
