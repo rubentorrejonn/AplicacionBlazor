@@ -18,10 +18,8 @@ namespace UltimateProyect.Server.Controllers
         [HttpGet("disponibles")]
         public async Task <ActionResult<List<VistaPaletsReservados>>> getPaletsDisponibles()
         {
-            var palets = await _context.V_MOVIMIENTO_PALETS
-                .Where(p => p.Estado == 3)
-                .ToListAsync();
-            return Ok(palets);
+            return await _context.V_MOVIMIENTO_PALETS.ToListAsync();
+
         }
         [HttpGet("stock")]
         public async Task<ActionResult<Dictionary<string, int>>> getStockDisponible()
