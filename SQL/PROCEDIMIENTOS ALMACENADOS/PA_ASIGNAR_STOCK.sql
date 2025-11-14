@@ -106,8 +106,7 @@ BEGIN TRY
 			UPDATE
 				 PALETS
 			SET
-				 ESTADO = '3',
-				 UBICACION = 'UBI-1'
+				 ESTADO = '3'
 			WHERE
 				PALET = @PALET
 			UPDATE
