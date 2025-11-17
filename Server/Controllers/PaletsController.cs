@@ -4,6 +4,7 @@ using UltimateProyect.Shared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
 using System.Data;
+using Microsoft.AspNetCore.Authorization;
 
 namespace UltimateProyect.Server.Controllers
 {
@@ -58,75 +59,31 @@ namespace UltimateProyect.Server.Controllers
             return Ok(ubicaciones);
         }
         [HttpPut("{paletId}/mover")]
+        [Authorize]
         public async Task<IActionResult> MoverPalet(int paletId, [FromBody] MoverPaletRequestDto request)
         {
-            if (request == null || string.IsNullOrEmpty(request.NuevaUbicacion))
-                return BadRequest("Solicitud inválida o nueva ubicación no especificada.");
+            if (string.IsNullOrEmpty(request?.NuevaUbicacion))
+                return BadRequest("La nueva ubicación es requerida.");
+
+            var ubicacionValida = await _context.Ubicaciones
+                .AnyAsync(u => u.Ubicacion == request.NuevaUbicacion && u.StatusUbi == 1);
+            if (!ubicacionValida)
+                return BadRequest("La ubicación seleccionada no es válida.");
 
             var palet = await _context.Palets.FindAsync(paletId);
             if (palet == null)
                 return NotFound("Palet no encontrado.");
 
-            var ubicacionValida = await _context.Ubicaciones.AnyAsync(u => u.Ubicacion == request.NuevaUbicacion && u.StatusUbi == 1);
-            if (!ubicacionValida)
-                return BadRequest("La nueva ubicación no es válida o no está activa.");
-
             palet.Ubicacion = request.NuevaUbicacion;
-            _context.Palets.Update(palet);
+            await _context.SaveChangesAsync();
 
-            try
-            {
-                await _context.SaveChangesAsync();
-                return Ok(new { Message = $"Palet {paletId} movido a {request.NuevaUbicacion} correctamente." });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { Message = $"Error al mover el palet: {ex.Message}" });
-            }
+            return Ok(new { Message = $"Palet {paletId} movido a {request.NuevaUbicacion}." });
         }
+
         public class MoverPaletRequestDto
         {
             public string NuevaUbicacion { get; set; } = null!;
         }
-        [HttpPost("registrar-movimiento-log")]
-        public async Task<IActionResult> RegistrarMovimientoLog([FromBody] RegistrarMovimientoLogRequestDto request)
-        {
-            try
-            {
-                var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                var mensajeParma = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
 
-                await _context.Database.ExecuteSqlRawAsync(
-                    "EXE @RETCODE = PA_MOVIMIENTOS_LOG " +
-                    "@PETICION, @PALET, @REFERENCIA " +
-                    "@UBICACION_ORIGEN, @UBICACION_DESTINO, @FECHA_MOVIMIENTO, @ID_USUARIO " +
-                    "@INVOKER, @USUARIO, @CULTURA " +
-                    "@RETCODE OUTPUT, @MENSAJE OUTPUT",
-                    new SqlParameter("@PETICION", request.Peticion),
-                    new SqlParameter("@PALET", request.Palet),
-                    new SqlParameter("@REFERENCIA", request.Referencia),
-                    new SqlParameter("@UBICACION_ORIGEN", request.UbicacionOrigen),
-                    new SqlParameter("@UBICACION_DESTINO", request.UbicacionDestino),
-                    new SqlParameter("@FECHA_MOVIMIENTO", request.FechaMovimiento),
-                    new SqlParameter("@ID_USUARIO", request.IdUsuario),
-                    new SqlParameter("@INVOKER", ""),
-                    new SqlParameter("@USUARIO", ""),
-                    new SqlParameter("@CULTURA", ""),
-                    retCodeParam,
-                    mensajeParma
-            );
-                var retCode = (int)retCodeParam.Value;
-                var mensaje = (string)mensajeParma.Value;
-
-                Console.WriteLine($"[INFO] Movimiento registrado correctamente. RETCODE: {retCode}. Mensaje: {mensaje}");
-                return Ok(new { Message = mensaje });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[ERROR] Excepción general al registrar movimiento log: {ex.Message}");
-                Console.WriteLine($"[ERROR] Detalles: {ex}");
-                return StatusCode(500, new { Message = $"Error interno al registrar el movimiento: {ex.Message}" });
-            }
-        }
     }
 }

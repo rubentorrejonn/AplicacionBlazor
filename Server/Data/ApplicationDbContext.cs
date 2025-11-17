@@ -22,6 +22,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<NSeriesSeguimiento> NSeries_Seguimiento { get; set; }
     public DbSet<VistaOrdenSalidaCab> V_OSC_ESTADO_DESCRIPCION { get; set; }
     public DbSet<VistaPaletsReservados> V_MOVIMIENTO_PALETS { get; set; }
+    public DbSet<Movimientos> Movimientos { get; set; }
     public DbSet<Usuarios> Usuarios { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -33,6 +34,14 @@ public class ApplicationDbContext : DbContext
         // RecepcionesLin (clave compuesta)
         modelBuilder.Entity<RecepcionesLin>()
             .HasKey(rl => new { rl.Albaran, rl.Linea });
+
+        modelBuilder.Entity<Movimientos>(entity =>
+        {
+            entity.HasKey(m => m.IdMovimientos);
+
+            entity.Property(m => m.IdMovimientos)
+                  .HasColumnName("ID_MOVIMIENTOS");
+        });
 
         modelBuilder.Entity<Referencias>()
             .HasKey(r => r.Referencia);

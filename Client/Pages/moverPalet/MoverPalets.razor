@@ -55,11 +55,15 @@ else
 
     private async Task MoverPalet()
     {
-        if (string.IsNullOrEmpty(nuevaUbicacionSeleccionada)) return;
+        if (string.IsNullOrEmpty(nuevaUbicacionSeleccionada) || palet == null) return;
 
         try
         {
-            var request = new { NuevaUbicacion = nuevaUbicacionSeleccionada };
+            var request = new MoverPaletRequestDto
+                {
+                    NuevaUbicacion = nuevaUbicacionSeleccionada
+                };
+
             var response = await Http.PutAsJsonAsync($"api/palets/{PaletId}/mover", request);
 
             if (response.IsSuccessStatusCode)
