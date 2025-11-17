@@ -1,114 +1,115 @@
-﻿@page "/salidacab"
-@using UltimateProyect.Shared.Models;
-@inject HttpClient Http
-@inject NavigationManager Nav
-@inject IJSRuntime JSRuntime
+﻿    @page "/salidacab"
+    @using UltimateProyect.Shared.Models;
+    @inject HttpClient Http
+    @inject NavigationManager Nav
+    @inject IJSRuntime JSRuntime
 
-<h3>Salidas Cab</h3>
-<a href="/salidacab/create" class="btn btn-success mb-3">Crear Nueva Salida</a>
+    <h3>Salidas Cab</h3>
+    <a href="/salidacab/create" class="btn btn-success mb-3">Crear Nueva Salida</a>
 
-@if (salidaCab == null)
-{
-    <p>Cargando...</p>
-}
-else if (salidaCab.Length == 0)
-{
-    <p>No hay cabeceras creadas</p>
-}
-else
-{
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Nombre Cliente</th>
-                <th>Dirección Entrega</th>
-                <th>Codigo Postal</th>
-                <th>Poblacion</th>
-                <th>Provincia</th>
-                <th>Telefono</th>
-                <th>Fecha Creacion</th>
-                <th>Estado</th>
-                <th>Accion</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var scab in salidaCab)
-            {
+    @if (salidaCab == null)
+    {
+        <p>Cargando...</p>
+    }
+    else if (salidaCab.Length == 0)
+    {
+        <p>No hay cabeceras creadas</p>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
                 <tr>
-                    <td>@scab.NombreCliente</td>
-                    <td>@scab.DireccionEntrega</td>
-                    <td>@scab.CodigoPostal</td>
-                    <td>@scab.Poblacion</td>
-                    <td>@scab.Provincia</td>
-                    <td>@scab.Telefono</td>
-                    <td>@scab.FCreacion.ToShortDateString()</td>
-                    <td>@scab.Estado - @scab.DesEstado</td>
-                    <td>
-                        @if (scab.Estado < 1)
-                        {
-                            <a href="/pedidos?peticion=@scab.Peticion" class="btn btn-sm btn-primary">Hacer Pedido</a>
-                        }
-                        @if (scab.Estado == 1)
-                        {
-                            <button class="btn btn-sm btn-success ms-1" @onclick="() => AsignarStock(scab.Peticion)">Solicitar</button>
-                            <a href="/edit?peticion=@scab.Peticion" class="btn btn-sm btn-warning ms-1">Editar</a>
-                        }
-                        @if (scab.Estado == 3)
-                        {
-                            
-                        }
-                    </td>
+                    <th>Nombre Cliente</th>
+                    <th>Dirección Entrega</th>
+                    <th>Codigo Postal</th>
+                    <th>Poblacion</th>
+                    <th>Provincia</th>
+                    <th>Telefono</th>
+                    <th>Fecha Creacion</th>
+                    <th>Estado</th>
+                    <th>Accion</th>
                 </tr>
-            }
-        </tbody>
-    </table>
-}
-
-@code {
-    private VistaOrdenSalidaCab[]? salidaCab;
-
-    protected override async Task OnInitializedAsync()
-    {
-        salidaCab = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/ordensalidacab");
+            </thead>
+            <tbody>
+                @foreach (var scab in salidaCab)
+                {
+                    <tr>
+                        <td>@scab.NombreCliente</td>
+                        <td>@scab.DireccionEntrega</td>
+                        <td>@scab.CodigoPostal</td>
+                        <td>@scab.Poblacion</td>
+                        <td>@scab.Provincia</td>
+                        <td>@scab.Telefono</td>
+                        <td>@scab.FCreacion.ToShortDateString()</td>
+                        <td>@scab.Estado - @scab.DesEstado</td>
+                        <td>
+                            @if (scab.Estado < 1)
+                            {
+                                <a href="/pedidos?peticion=@scab.Peticion" class="btn btn-sm btn-primary">Hacer Pedido</a>
+                            }
+                            @if (scab.Estado == 1)
+                            {
+                                <button class="btn btn-sm btn-success ms-1" @onclick="() => AsignarStock(scab.Peticion)">Solicitar</button>
+                                <a href="/edit?peticion=@scab.Peticion" class="btn btn-sm btn-warning ms-1">Editar</a>
+                            }
+                            @if (scab.Estado == 3)
+                            {
+                            
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     }
 
-    private void OrdenSalida(OrdenSalidaCab salida)
-    {
-        if (salida.Estado != 1)
+    @code {
+        private VistaOrdenSalidaCab[]? salidaCab;
+
+        protected override async Task OnInitializedAsync()
         {
-            salida.Estado = 1;
-            _ = Http.PutAsJsonAsync($"api/ordensalidacab={salida.Peticion}", salida);
+            salidaCab = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/ordensalidacab");
         }
-    }
 
-    private async Task EliminarPeticion(int peticion)
-    {
-        var confirm = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Eliminar la petición {peticion}?");
-        if (!confirm) return;
-
-        await Http.DeleteAsync($"api/ordensalidacab/{peticion}");
-        salidaCab = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/ordensalidacab");
-    }
-
-    private async Task AsignarStock(int peticion)
-    {
-        try
+        private void OrdenSalida(OrdenSalidaCab salida)
         {
-            var response = await Http.PostAsync($"api/RecepcionesLin/asignar-stock/{peticion}", null);
-            if (response.IsSuccessStatusCode)
+            if (salida.Estado != 1)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "Stock asignado correctamente.");
-                salidaCab = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/ordensalidacab");
-            }
-            else
-            {
-                var error = await response.Content.ReadFromJsonAsync<LoginResultDto>();
-                await JSRuntime.InvokeVoidAsync("alert", error?.Message ?? "Error al asignar stock.");
+                salida.Estado = 1;
+                _ = Http.PutAsJsonAsync($"api/ordensalidacab={salida.Peticion}", salida);
             }
         }
-        catch (Exception ex)
+
+        private async Task EliminarPeticion(int peticion)
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+            var confirm = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Eliminar la petición {peticion}?");
+            if (!confirm) return;
+
+            await Http.DeleteAsync($"api/ordensalidacab/{peticion}");
+            salidaCab = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/ordensalidacab");
+        }
+
+        private async Task AsignarStock(int peticion)
+        {
+            try
+            {
+                var response = await Http.PostAsync($"api/RecepcionesLin/asignar-stock/{peticion}", null);
+                if (response.IsSuccessStatusCode)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "Stock asignado correctamente.");
+                    salidaCab = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/ordensalidacab");
+                    StateHasChanged();
+                }
+                else
+                {
+                    var error = await response.Content.ReadFromJsonAsync<LoginResultDto>();
+                    await JSRuntime.InvokeVoidAsync("alert", error?.Message ?? "Error al asignar stock.");
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+            }
         }
     }
-}

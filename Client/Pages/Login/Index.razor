@@ -4,11 +4,27 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
 
-<EditForm Model="loginModel" OnValidSubmit="HandleLogin">
-    <InputText @bind-Value="loginModel.Username" placeholder="Usuario" class="form-control mb-2" />
-    <InputText type="password" @bind-Value="loginModel.Password" placeholder="Contraseña" class="form-control mb-2" />
-    <button type="submit" class="btn btn-primary">Entrar</button>
-</EditForm>
+<div class="d-flex justify-content-center vh-100">
+    <div class="card p-4" style="width: 100%; max-width: 400px; max-height:fit-content">
+        <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+            <h1 class="text-center mb-4">Iniciar Sesión</h1>
+            <div class="mb-3">
+                <InputText @bind-Value="loginModel.Username"
+                           placeholder="Usuario"
+                           class="form-control" />
+            </div>
+            <div class="mb-3">
+                <InputText type="password"
+                           @bind-Value="loginModel.Password"
+                           placeholder="Contraseña"
+                           class="form-control" />
+            </div>
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary">Entrar</button>
+            </div>
+        </EditForm>
+    </div>
+</div>
 
 @code {
     private LoginRequestDto loginModel = new();

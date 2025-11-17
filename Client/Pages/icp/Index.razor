@@ -1,0 +1,49 @@
+﻿@page "/icp/picking"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+
+<h3>Verificación en ICP</h3>
+
+@if (salidas == null)
+{
+    <p>Cargando salidas disponibles...</p>
+}
+else if (!salidas.Any())
+{
+    <p>No hay salidas disponibles para verificación.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Petición</th>
+                <th>Cliente</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var salida in salidas)
+            {
+                <tr>
+                    <td>@salida.Peticion</td>
+                    <td>@salida.NombreCliente</td>
+                    <td>
+                        <a href="/icp/verificar/@salida.Peticion" class="btn btn-primary">Verificar</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private VistaOrdenSalidaCab[]? salidas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        salidas = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/icp/salidas-disponibles");
+    }
+}

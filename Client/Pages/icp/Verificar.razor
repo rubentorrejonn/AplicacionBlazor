@@ -1,0 +1,125 @@
+﻿@page "/icp/verificar/{Peticion:int}"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<h3>Verificar Salida - Petición @Peticion</h3>
+
+@if (verificacion == null)
+{
+    <p>Cargando datos de la verificación...</p>
+}
+else
+{
+    <div class="card mb-3">
+        <div class="card-header">
+            Cliente: @verificacion.NombreCliente
+        </div>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Línea</th>
+                <th>Referencia</th>
+                <th>Artículo</th>
+                <th>Cantidad</th>
+                <th>Números de Serie</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int i = 0; i < verificacion.Lineas.Count; i++)
+            {
+                var linea = verificacion.Lineas[i];
+                <tr>
+                    <td>@linea.Linea</td>
+                    <td>@linea.Referencia</td>
+                    <td>@linea.DesReferencia</td>
+                    <td>@linea.Cantidad</td>
+                    <td>
+                        @if (linea.RequiereNSerie.HasValue)
+                        {
+                            <textarea @oninput="@(e => OnNumerosSerieChanged(i, e.Value?.ToString() ?? ""))"
+                                      rows="3"
+                                      class="form-control"
+                                      placeholder="Ingrese un número de serie por línea">@string.Join("\n", linea.NumerosSerie)</textarea>
+                        }
+                        else
+                        {
+                            <span class="text-muted">No requiere N° de serie</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <button class="btn btn-success" @onclick="ConfirmarVerificacion">Confirmar Verificación</button>
+    <button class="btn btn-secondary" @onclick="NavegarA_Icp">Volver</button>
+}
+
+@code {
+    [Parameter]
+    public int Peticion { get; set; }
+    private VerificacionIcpDto? verificacion;
+
+    private void NavegarA_Icp() => Nav.NavigateTo("/icp/picking");
+    
+    protected override async Task OnInitializedAsync()
+    {
+        verificacion = await Http.GetFromJsonAsync<VerificacionIcpDto>($"api/icp/verificar/{Peticion}");
+        if (verificacion != null)
+        {
+            foreach (var linea in verificacion.Lineas)
+            {
+                if (linea.RequiereNSerie.HasValue)
+                {
+                    linea.NumerosSerie = new List<string>(new string[linea.Cantidad]);
+                }
+            }
+        }
+    }
+
+    private void OnNumerosSerieChanged(int indiceLinea, string value)
+    {
+        if (verificacion == null) return;
+
+        var lineas = verificacion.Lineas;
+        var linea = lineas[indiceLinea];
+
+        var numeros = value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        linea.NumerosSerie = numeros.Take(linea.Cantidad).ToList();
+
+        while (linea.NumerosSerie.Count < linea.Cantidad)
+        {
+            linea.NumerosSerie.Add(string.Empty);
+        }
+    }
+
+    private async Task ConfirmarVerificacion()
+    {
+        if (verificacion == null) return;
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/icp/confirmar-verificacion", verificacion);
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Verificación completada correctamente.");
+                Nav.NavigateTo("/icp");
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
+                var message = error?["Message"]?.ToString() ?? "Error al confirmar la verificación.";
+                await JSRuntime.InvokeVoidAsync("alert", message);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+}
