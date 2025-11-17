@@ -6,6 +6,12 @@
 
 <h3>Recepciones</h3>
 
+<div class="mb-3">
+    <input @bind="filtroAlbaran"
+    class="form-control"
+    placeholder="Buscar por albaran..."
+    @oninput="OnFiltroChanged" />
+</div>
 <a href="/recepciones/create" class="btn btn-success mb-3">Crear Nueva Recepción</a>
 
 @if (cabeceras == null)
@@ -29,7 +35,7 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var cab in cabeceras)
+            @foreach (var cab in AlbaranesFiltrados)
             {
                 bool bloqueado = cab.Estado >= 2;
                 bool bloquearEdit = cab.Estado != 2;
@@ -43,23 +49,23 @@ else
                     <td>
 
                         <a class="btn btn-sm btn-primary @(bloquearEdit ? "disabled" : "")"
-                           href="/recepciones/edit/@cab.Albaran">Editar</a>
-                        
+                        href="/recepciones/edit/@cab.Albaran">Editar</a>
+
                         <button class="btn btn-sm btn-secondary ms-1"
-                                @onclick="() => Recepcionar(cab)"
-                                disabled="@(bloqueado)">
+                        @onclick="() => Recepcionar(cab)"
+                        disabled="@(bloqueado)">
                             Recepcionar
                         </button>
 
                         <button class="btn btn-sm btn-danger ms-1"
-                                @onclick="() => Eliminar(cab.Albaran)"
-                                disabled="@(bloqueado)">
+                        @onclick="() => Eliminar(cab.Albaran)"
+                        disabled="@(bloqueado)">
                             Eliminar
                         </button>
 
                         <button class="btn btn-sm btn-warning ms-1"
-                                @onclick="() => EnviarAICP(cab)"
-                                disabled="@(bloquearICP)">
+                        @onclick="() => EnviarAICP(cab)"
+                        disabled="@(bloquearICP)">
                             Enviar a ICP
                         </button>
                     </td>
@@ -71,10 +77,35 @@ else
 
 @code {
     private RecepcionesCab[]? cabeceras;
+    private string filtroAlbaran = "";
+    private RecepcionesCab[]? AlbaranesFiltrados;
 
     protected override async Task OnInitializedAsync()
     {
         cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+        AplicarFiltro();
+    }
+
+    private void OnFiltroChanged(ChangeEventArgs e)
+    {
+        filtroAlbaran = e.Value?.ToString() ?? "";
+        AplicarFiltro();
+
+    }
+    private void AplicarFiltro()
+    {
+        if (cabeceras is null) return;
+
+        if (string.IsNullOrWhiteSpace(filtroAlbaran))
+        {
+            AlbaranesFiltrados = cabeceras;
+        }
+        else
+        {
+            AlbaranesFiltrados = cabeceras
+                .Where(r => r.Albaran.ToString().Contains(filtroAlbaran, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
     }
 
     private void Recepcionar(RecepcionesCab cab)

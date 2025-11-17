@@ -9,6 +9,12 @@
 
 <h3>Referencias Disponibles</h3>
 
+<div class="mb-3">
+    <input @bind="filtroReferencia"
+           class="form-control"
+           placeholder="Buscar por referencia..."
+           @oninput="OnFiltroChanged" />
+</div>
 @if (referencias == null)
 {
     <p>Cargando...</p>
@@ -27,7 +33,7 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var refe in referencias)
+            @foreach (var refe in referenciasFiltradas)
         {
                 <tr>
                     <td>@refe.Referencia</td>
@@ -52,10 +58,13 @@ else
 
 @code {
     private Referencias[]? referencias;
+    private string filtroReferencia = "";
+    private Referencias[]? referenciasFiltradas;
 
     protected override async Task OnInitializedAsync()
     {
         referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
+        AplicarFiltro();
     }
 
     private async Task EliminarReferencia(string referencia)
@@ -66,5 +75,26 @@ else
         await Http.DeleteAsync($"api/Referencias/{referencia}");
         referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
         StateHasChanged();
+    }
+    private void OnFiltroChanged(ChangeEventArgs e)
+    {
+        filtroReferencia = e.Value?.ToString() ?? "";
+        AplicarFiltro();
+
+    }
+    private void AplicarFiltro()
+    {
+        if (referencias == null) return;
+
+        if (string.IsNullOrWhiteSpace(filtroReferencia))
+        {
+            referenciasFiltradas = referencias;
+        }
+        else
+        {
+            referenciasFiltradas = referencias
+                .Where(r => r.Referencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
     }
 }

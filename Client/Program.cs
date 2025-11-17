@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using UltimateProyect.Client;
 using Microsoft.AspNetCore.Components.Authorization;
 using UltimateProyect.Client.Services;
-using BlazorBootstrap;
+
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
