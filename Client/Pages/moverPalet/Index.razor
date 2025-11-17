@@ -4,6 +4,13 @@
 
 <h3>Lista de Palets Disponibles para Mover</h3>
 
+<div class="mb-3">
+    <input @bind="filtroPalets"
+    class="form-control"
+    placeholder="Buscar por referencia o descripción..."
+    @oninput="OnFiltroChanged" />
+</div>
+
 @if (palets == null)
 {
     <p>Cargando...</p>
@@ -26,7 +33,7 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var palet in palets)
+            @foreach (var palet in paletsFiltrados)
             {
                 <tr>
                     <td>@palet.Palet</td>
@@ -45,9 +52,35 @@ else
 
 @code {
     private List<VistaPaletsReservados>? palets;
+    private string filtroPalets = "";
+    private List<VistaPaletsReservados>? paletsFiltrados;
 
     protected override async Task OnInitializedAsync()
     {
         palets = await Http.GetFromJsonAsync<List<VistaPaletsReservados>>("api/palets/disponibles");
+        AplicarFiltro();
+    }
+
+    private void OnFiltroChanged(ChangeEventArgs e)
+    {
+        filtroPalets = e.Value?.ToString() ?? "";
+        AplicarFiltro();
+
+    }
+    private void AplicarFiltro()
+    {
+        if (palets == null) return;
+
+        if (string.IsNullOrWhiteSpace(filtroPalets))
+        {
+            paletsFiltrados = palets;
+        }
+        else
+        {
+            paletsFiltrados = palets
+                .Where(r => r.Referencia.Contains(filtroPalets, StringComparison.OrdinalIgnoreCase) ||
+                r.DesReferencia.Contains(filtroPalets, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
     }
 }

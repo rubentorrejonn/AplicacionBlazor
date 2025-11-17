@@ -5,6 +5,13 @@
 
 <h3>Albaranes Enviados a ICP</h3>
 
+<div class="mb-3">
+    <input @bind="filtroAlbaran"
+    class="form-control"
+    placeholder="Buscar por albaran..."
+    @oninput="OnFiltroChanged" />
+</div>
+
 @if (albaranes == null)
 {
     <p>Cargando...</p>
@@ -25,7 +32,7 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var a in albaranes)
+            @foreach (var a in AlbaranesFiltrados)
             {
                 <tr>
                     <td>@a.Albaran</td>
@@ -44,11 +51,35 @@ else
 
 @code {
     private RecepcionesCab[]? albaranes;
+    private string filtroAlbaran = "";
+    private RecepcionesCab[]? AlbaranesFiltrados;
 
     protected override async Task OnInitializedAsync()
     {
         var todos = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
         //Que desaparezca de la lista cuando esta "estado 4 confirmado"
         albaranes = todos?.Where(x => x.Estado == 3).ToArray();
+        AplicarFiltro();
+    }
+    private void OnFiltroChanged(ChangeEventArgs e)
+    {
+        filtroAlbaran = e.Value?.ToString() ?? "";
+        AplicarFiltro();
+
+    }
+    private void AplicarFiltro()
+    {
+        if (albaranes == null) return;
+
+        if (string.IsNullOrWhiteSpace(filtroAlbaran))
+        {
+            AlbaranesFiltrados = albaranes;
+        }
+        else
+        {
+            AlbaranesFiltrados = albaranes
+                .Where(r => r.Albaran.ToString().Contains(filtroAlbaran, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
     }
 }

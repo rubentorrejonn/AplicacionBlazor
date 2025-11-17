@@ -4,7 +4,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
 
-<h3>Verificar Salida - Petición @Peticion</h3>
+<h3>Picking de - Petición @Peticion</h3>
 
 @if (verificacion == null)
 {
@@ -37,13 +37,14 @@ else
                     <td>@linea.Referencia</td>
                     <td>@linea.DesReferencia</td>
                     <td>@linea.Cantidad</td>
+                   
                     <td>
                         @if (linea.RequiereNSerie.HasValue)
                         {
                             <textarea @oninput="@(e => OnNumerosSerieChanged(i, e.Value?.ToString() ?? ""))"
                                       rows="3"
                                       class="form-control"
-                                      placeholder="Ingrese un número de serie por línea">@string.Join("\n", linea.NumerosSerie)</textarea>
+                                      placeholder="Ingrese numeros de serie de longitud: {@(linea.LongNSerie)}">@string.Join("\n", linea.NumerosSerie)</textarea>
                         }
                         else
                         {
@@ -75,7 +76,8 @@ else
             {
                 if (linea.RequiereNSerie.HasValue)
                 {
-                    linea.NumerosSerie = new List<string>(new string[linea.Cantidad]);
+                    //linea.NumerosSerie = new List<string>(new string[linea.Cantidad]);
+                    linea.NumerosSerie = new List<string>();
                 }
             }
         }

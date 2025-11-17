@@ -51,6 +51,14 @@ else
     }
 
     <h4 class="mt-4">Catálogo de Referencias</h4>
+
+    <div class="mb-2">
+        <input @bind="filtroReferencia"
+               class="form-control"
+               placeholder="Buscar por referencia o descripción..."
+               @oninput="OnFiltroReferenciasChanged" />
+    </div>
+
     @if (referencias == null)
     {
         <p>Cargando referencias...</p>
@@ -58,7 +66,7 @@ else
     else
     {
         <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px;">
-            @foreach (var refe in referencias)
+            @foreach (var refe in referenciasFiltradas)
             {
                 <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
                     <div>
@@ -76,6 +84,9 @@ else
 
 @code {
     private Referencias[]? referencias;
+    private string filtroReferencia = "";
+    private Referencias[]? referenciasFiltradas;
+
 
     [Parameter][SupplyParameterFromQuery] public string? albaran { get; set; }
 
@@ -87,6 +98,35 @@ else
         }
 
         referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
+        AplicarFiltroReferencias();
+    }
+
+    private void OnFiltroReferenciasChanged(ChangeEventArgs e)
+    {
+        filtroReferencia = e.Value?.ToString() ?? "";
+        AplicarFiltroReferencias();
+    }
+
+    private void AplicarFiltroReferencias()
+    {
+        if (referencias == null)
+        {
+            referenciasFiltradas = null;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(filtroReferencia))
+        {
+            referenciasFiltradas = referencias;
+        }
+        else
+        {
+            var filtro = filtroReferencia.ToLowerInvariant();
+            referenciasFiltradas = referencias
+                .Where(r => r.Referencia.ToLowerInvariant().Contains(filtro) ||
+                           r.DesReferencia.ToLowerInvariant().Contains(filtro))
+                .ToArray();
+        }
     }
 
     private void AddToCarrito(Referencias refe)

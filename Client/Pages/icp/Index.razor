@@ -4,7 +4,14 @@
 @inject NavigationManager Nav
 
 
-<h3>Verificación en ICP</h3>
+<h3>Listado de Peticiones</h3>
+
+<div class="mb-3">
+    <input @bind="filtroPeticion"
+    class="form-control"
+    placeholder="Busca por petición..."
+    @oninput="OnFiltroChanged"/>
+</div>
 
 @if (salidas == null)
 {
@@ -25,13 +32,13 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var salida in salidas)
+            @foreach (var salida in peticionesFiltradas)
             {
                 <tr>
                     <td>@salida.Peticion</td>
                     <td>@salida.NombreCliente</td>
                     <td>
-                        <a href="/icp/verificar/@salida.Peticion" class="btn btn-primary">Verificar</a>
+                        <a href="/icp/verificar/@salida.Peticion" class="btn btn-primary btn-sm">Verificar</a>
                     </td>
                 </tr>
             }
@@ -41,9 +48,34 @@ else
 
 @code {
     private VistaOrdenSalidaCab[]? salidas;
+    private string filtroPeticion = "";
+    private VistaOrdenSalidaCab[]? peticionesFiltradas;
 
     protected override async Task OnInitializedAsync()
     {
         salidas = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/icp/salidas-disponibles");
+        AplicarFiltro();
+    }
+
+    private void OnFiltroChanged(ChangeEventArgs e)
+    {
+        filtroPeticion = e.Value?.ToString() ?? "";
+        AplicarFiltro();
+    }
+
+    private void AplicarFiltro()
+    {
+        if (salidas == null) return;
+
+        if(string.IsNullOrWhiteSpace(filtroPeticion))
+        {
+            peticionesFiltradas = salidas;
+        }
+        else
+        {
+            peticionesFiltradas = salidas
+                .Where(p => p.Peticion.ToString().Contains(filtroPeticion, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
     }
 }
