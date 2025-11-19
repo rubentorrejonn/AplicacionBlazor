@@ -14,7 +14,7 @@ public class Referencias
     public decimal Precio { get; set; }
 
     [Column("F_CREACION")]
-    public DateTime? FCreacion { get; set; }
+    public DateTime? FCreacion { get; set; } 
 
     [Column("NSERIE")]
     public bool? NSerie { get; set; }

@@ -1,0 +1,52 @@
+﻿@page "/log/{Peticion:int}"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+
+<h3>Log de Picking - Petición @Peticion</h3>
+
+@if (logs == null)
+{
+    <p>Cargando...</p>
+}
+else if (!logs.Any())
+{
+    <p>No hay registros de picking.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Palet</th>
+                <th>Referencia</th>
+                <th>Cantidad Quitada</th>
+                <th>Fecha</th>
+                <th>Usuario</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var log in logs)
+            {
+                <tr>
+                    <td>@log.Palet</td>
+                    <td>@log.Referencia</td>
+                    <td>@log.CantidadQuitada</td>
+                    <td>@log.FechaVerificacion.ToShortDateString()</td>
+                    <td>@log.IdUsuario</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter]
+    public int Peticion { get; set; }
+
+    private List<PickingLogs>? logs;
+
+    protected override async Task OnInitializedAsync()
+    {
+        logs = await Http.GetFromJsonAsync<List<PickingLogs>>($"api/icp/log/{Peticion}");
+    }
+}

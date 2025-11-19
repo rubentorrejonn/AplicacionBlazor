@@ -114,8 +114,8 @@ else
             }
             else
             {
-                var error = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
-                var message = error?["Message"]?.ToString() ?? "Error al confirmar la verificación.";
+                var errorContent = await response.Content.ReadAsStringAsync();
+                var message = $"Error: {response.StatusCode} - {errorContent}";
                 await JSRuntime.InvokeVoidAsync("alert", message);
             }
         }

@@ -29,6 +29,19 @@ builder.Services.ConfigureApplicationCookie(options =>
         context.Response.Redirect(context.RedirectUri);
         return Task.CompletedTask;
     };
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.HttpOnly = false;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+});
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowBlazorWasm", policy =>
+    {
+        policy.WithOrigins("https://localhost:44342")
+              .AllowCredentials()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
 });
 builder.Services.AddAuthorization();
 
@@ -49,6 +62,7 @@ app.UseBlazorFrameworkFiles();
 
 app.UseRouting();
 
+app.UseCors("AllowBlazorWasm");
 app.UseAuthentication();
 app.UseAuthorization();
 

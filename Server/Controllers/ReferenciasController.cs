@@ -45,6 +45,9 @@ public class ReferenciasController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Referencias>> CreateReferencias(Referencias referencia)
     {
+        referencia.FCreacion = DateTime.Now;
+        referencia.Operativo = true;
+
         _context.Referencias.Add(referencia);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetReferencias), new { Referencia = referencia.Referencia }, referencia);

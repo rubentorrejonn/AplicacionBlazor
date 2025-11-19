@@ -25,6 +25,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Movimientos> Movimientos { get; set; }
     public DbSet<Usuarios> Usuarios { get; set; }
 
+    public DbSet<PickingLogs> PickingLog { get; set; }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -41,6 +42,12 @@ public class ApplicationDbContext : DbContext
 
             entity.Property(m => m.IdMovimientos)
                   .HasColumnName("ID_MOVIMIENTOS");
+        });
+
+        modelBuilder.Entity<PickingLogs>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.FechaVerificacion).HasDefaultValueSql("GETDATE()");
         });
 
         modelBuilder.Entity<Referencias>()
