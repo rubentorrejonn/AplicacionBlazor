@@ -1,14 +1,15 @@
-﻿@page "/log/{Peticion:int}"
+﻿@page "/log"
 @using UltimateProyect.Shared.Models
 @inject HttpClient Http
+@inject AuthenticationStateProvider Authe
 
-<h3>Log de Picking - Petición @Peticion</h3>
+<h3>Historial Completo de Picking</h3>
 
-@if (logs == null)
+@if (allLogs == null)
 {
     <p>Cargando...</p>
 }
-else if (!logs.Any())
+else if (!allLogs.Any())
 {
     <p>No hay registros de picking.</p>
 }
@@ -17,6 +18,7 @@ else
     <table class="table">
         <thead>
             <tr>
+                <th>Petición</th>
                 <th>Palet</th>
                 <th>Referencia</th>
                 <th>Cantidad Quitada</th>
@@ -25,14 +27,15 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var log in logs)
+            @foreach (var log in allLogs)
             {
                 <tr>
+                    <td>@log.Peticion</td>
                     <td>@log.Palet</td>
                     <td>@log.Referencia</td>
                     <td>@log.CantidadQuitada</td>
-                    <td>@log.FechaVerificacion.ToShortDateString()</td>
-                    <td>@log.IdUsuario</td>
+                    <td>@log.FechaVerificacion.ToString("g")</td>
+                    <td>@log.NombreUsuario</td>
                 </tr>
             }
         </tbody>
@@ -40,13 +43,12 @@ else
 }
 
 @code {
-    [Parameter]
-    public int Peticion { get; set; }
-
-    private List<PickingLogs>? logs;
+    private List<PickingLogs>? allLogs;
 
     protected override async Task OnInitializedAsync()
     {
-        logs = await Http.GetFromJsonAsync<List<PickingLogs>>($"api/api/log/{Peticion}");
+
+        allLogs = await Http.GetFromJsonAsync<List<PickingLogs>>("api/icp/log");
+
     }
 }

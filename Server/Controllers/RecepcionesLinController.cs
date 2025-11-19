@@ -71,29 +71,6 @@ public class RecepcionesLinController : ControllerBase
 
         try
         {
-            var paletsExistentes = await _context.Palets
-                .Where(p => p.Albaran == albaran)
-                .Select(p => p.Palet)
-                .ToListAsync();
-
-            if (paletsExistentes.Any())
-            {
-                var nseriesExistentes = await _context.NSeries_Recepciones
-                    .Where(ns => paletsExistentes.Contains(ns.Palet))
-                    .ToListAsync();
-                _context.NSeries_Recepciones.RemoveRange(nseriesExistentes);
-                /*
-                var seguimientosExistentes = await _context.NSeries_Seguimiento
-                    .Where(ns => paletsExistentes.Contains(ns.Palet))
-                    .ToListAsync();
-                _context.NSeries_Seguimiento.RemoveRange(seguimientosExistentes);
-                */
-                var paletsToRemove = await _context.Palets
-                    .Where(p => p.Albaran == albaran)
-                    .ToListAsync();
-                _context.Palets.RemoveRange(paletsToRemove);
-            }
-
             var lineasExistentes = await _context.Recepciones_Lin
                 .Where(l => l.Albaran == albaran)
                 .ToListAsync();
@@ -110,29 +87,6 @@ public class RecepcionesLinController : ControllerBase
             }).ToList();
 
             _context.Recepciones_Lin.AddRange(entidadesLin);
-            await _context.SaveChangesAsync();
-
-            var palets = new List<Palets>();
-            foreach (var lin in entidadesLin)
-            {
-                var unidades = lin.Cantidad;
-                while (unidades > 0)
-                {
-                    var cant = Math.Min(unidades, 1000);
-                    palets.Add(new Palets
-                    {
-                        Referencia = lin.Referencia,
-                        Cantidad = cant,
-                        Albaran = lin.Albaran,
-                        Ubicacion = "UBI-5",
-                        Estado = 1,
-                        FInsert = DateTime.Now
-                    });
-                    unidades -= cant;
-                }
-            }
-
-            _context.Palets.AddRange(palets);
             await _context.SaveChangesAsync();
 
             if (cabecera.Estado == 1)

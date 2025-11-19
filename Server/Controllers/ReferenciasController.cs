@@ -54,12 +54,21 @@ public class ReferenciasController : ControllerBase
     }
 
     [HttpPut("{referencia}")]
-    public async Task<IActionResult> UpdateReferencias(string referencia, Referencias referenciaObj)
+    public async Task<IActionResult> UpdateReferencias(string referencia, Referencias referenciaDto)
     {
-        if (referencia != referenciaObj.Referencia)
-            return BadRequest("La referencia no coincide.");
+        if (referencia != referenciaDto.Referencia)
+            return BadRequest("La referencia en la URL no coincide con el cuerpo de la solicitud.");
 
-        _context.Entry(referenciaObj).State = EntityState.Modified;
+        var referenciaExistente = await _context.Referencias.FindAsync(referencia);
+        if (referenciaExistente == null)
+            return NotFound("Referencia no encontrada.");
+
+        referenciaExistente.DesReferencia = referenciaDto.DesReferencia;
+        referenciaExistente.Precio = referenciaDto.Precio;
+        referenciaExistente.NSerie = referenciaDto.NSerie;
+        referenciaExistente.LongNSerie = referenciaDto.LongNSerie;
+        referenciaExistente.Operativo = referenciaDto.Operativo;
+
         try
         {
             await _context.SaveChangesAsync();

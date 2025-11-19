@@ -143,6 +143,29 @@ public class IcpController : ControllerBase
         }
     }
 
+    [HttpGet("log")]
+    public async Task<ActionResult<List<PickingLogs>>> GetAllPickingLogs()
+    {
+        var logs = await _context.PickingLog
+        .Join(_context.Usuarios,
+              log => log.IdUsuario,
+              user => user.IdUsuario,
+              (log, user) => new PickingLogs
+              {
+                  Id = log.Id,
+                  Peticion = log.Peticion,
+                  Palet = log.Palet,
+                  Referencia = log.Referencia,
+                  CantidadQuitada = log.CantidadQuitada,
+                  FechaVerificacion = log.FechaVerificacion,
+                  IdUsuario = log.IdUsuario,
+                  NombreUsuario = user.UserName
+              })
+        .OrderByDescending(l => l.FechaVerificacion)
+        .ToListAsync();
+        return Ok(logs);
+    }
+
     [HttpGet("log/{peticion}")]
     public async Task<ActionResult<List<PickingLogs>>> GetPickingLog(int peticion)
     {
