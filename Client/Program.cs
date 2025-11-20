@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using UltimateProyect.Client;
 using Microsoft.AspNetCore.Components.Authorization;
 using UltimateProyect.Client.Services;
+using MudBlazor.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -24,5 +25,6 @@ builder.Services.AddAuthorizationCore(options =>
     options.AddPolicy("ICP", policy => policy.RequireRole("ICP"));
 });
 builder.Services.AddBlazorBootstrap();
+builder.Services.AddMudServices();
 
 await builder.Build().RunAsync();

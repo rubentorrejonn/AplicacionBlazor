@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 using UltimateProyect.Server.Data;
 using UltimateProyect.Shared.Models;
 
@@ -88,14 +90,42 @@ public class IcpController : ControllerBase
 
         try
         {
+            var asignacionesPorLinea = new Dictionary<int, List<Palets>>();
+
             foreach (var linea in verificacion.Lineas)
             {
-
                 var cantidadNecesaria = linea.Cantidad;
                 var paletsDisponibles = await _context.Palets
                     .Where(p => p.Referencia == linea.Referencia && p.Estado == 3)
                     .OrderBy(p => p.Palet)
                     .ToListAsync();
+
+                var paletsAsignadosALinea = new List<Palets>();
+                foreach (var palet in paletsDisponibles)
+                {
+                    if (cantidadNecesaria <= 0) break;
+
+                    var cantidadARestar = Math.Min(cantidadNecesaria, palet.Cantidad);
+                    palet.Cantidad -= cantidadARestar;
+                    cantidadNecesaria -= cantidadARestar;
+                    paletsAsignadosALinea.Add(palet);
+
+                    if (palet.Cantidad == 0)
+                        palet.Estado = 5;
+                    else
+                        palet.Estado = 1;
+
+                    _context.Palets.Update(palet);
+                }
+
+                if (cantidadNecesaria > 0)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest($"No hay suficiente stock para la referencia {linea.Referencia}.");
+                }
+
+                asignacionesPorLinea[linea.Linea] = paletsAsignadosALinea;
+
                 var nsDisponibles = await _context.NSeries_Recepciones
                     .Where(ns => ns.Referencia == linea.Referencia && ns.Estado == 1)
                     .Select(ns => ns.NSerie)
@@ -108,6 +138,7 @@ public class IcpController : ControllerBase
 
                 if (nsInvalidos.Any())
                 {
+                    await transaction.RollbackAsync();
                     return BadRequest($"Números de serie inválidos: {string.Join(", ", nsInvalidos)}");
                 }
 
@@ -125,46 +156,73 @@ public class IcpController : ControllerBase
                     }
                 }
 
-                foreach (var palet in paletsDisponibles)
+                var usuario = await _context.Usuarios.FindAsync(userIdActual);
+                if (usuario == null)
+                    return Unauthorized("Usuario no encontrado.");
+
+                foreach (var palet in paletsAsignadosALinea)
                 {
-                    if (cantidadNecesaria <= 0) break;
-
-                    var cantidadARestar = Math.Min(cantidadNecesaria, palet.Cantidad);
-
-                    palet.Cantidad -= cantidadARestar;
-                    cantidadNecesaria -= cantidadARestar;
-
                     var log = new PickingLogs
                     {
                         Peticion = verificacion.Peticion,
                         Palet = palet.Palet,
                         Referencia = palet.Referencia,
-                        CantidadQuitada = cantidadARestar,
+                        CantidadQuitada = palet.Cantidad,
                         FechaVerificacion = DateTime.Now,
-                        IdUsuario = userIdActual
+                        IdUsuario = userIdActual,
+                        NombreUsuario = usuario.UserName
                     };
                     _context.PickingLog.Add(log);
-
-                    if (palet.Cantidad == 0)
-                    {
-                        palet.Estado = 5;
-                    }
-                    else
-                    {
-                        palet.Estado = 1;
-                    }
-                    _context.Palets.Update(palet);
-                }
-
-                if (cantidadNecesaria > 0)
-                {
-                    await transaction.RollbackAsync();
-                    return BadRequest($"No hay suficiente stock para la referencia {linea.Referencia}.");
                 }
             }
 
             cabecera.Estado = 3;
             _context.Orden_Salida_Cab.Update(cabecera);
+
+            foreach (var linea in verificacion.Lineas)
+            {
+                if (linea.RequiereNSerie == true) continue;
+
+                var paletsDeEstaLinea = asignacionesPorLinea.GetValueOrDefault(linea.Linea, new List<Palets>());
+                if (!paletsDeEstaLinea.Any()) continue;
+
+                var paletAsignado = paletsDeEstaLinea.First();
+
+                foreach (var nserie in linea.NumerosSerie)
+                {
+                    if (string.IsNullOrEmpty(nserie)) continue;
+
+                    var connectionString = _context.Database.GetConnectionString();
+                    using var connection = new SqlConnection(connectionString);
+                    await connection.OpenAsync();
+
+                    using var command = new SqlCommand("PA_NSERIES_SEGUIMIENTO", connection);
+                    command.CommandType = CommandType.StoredProcedure;
+
+                    command.Parameters.Add(new SqlParameter("@NSERIE", SqlDbType.VarChar, 30) { Value = nserie });
+                    command.Parameters.Add(new SqlParameter("@PALET", SqlDbType.Int) { Value = paletAsignado.Palet });
+                    command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = verificacion.Peticion });
+                    command.Parameters.Add(new SqlParameter("@REFERENCIA", SqlDbType.VarChar, 30) { Value = linea.Referencia });
+                    command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
+                    command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
+                    command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
+
+                    var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                    var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
+                    command.Parameters.Add(retCodeParam);
+                    command.Parameters.Add(mensajeParam);
+
+                    await command.ExecuteNonQueryAsync();
+
+                    int retCode = (int)retCodeParam.Value;
+                    if (retCode != 0)
+                    {
+                        var mensaje = mensajeParam.Value?.ToString() ?? "Error desconocido en PA_NSERIES_SEGUIMIENTO";
+                        await transaction.RollbackAsync();
+                        return BadRequest($"Error en el seguimiento de NSerie '{nserie}': {mensaje}");
+                    }
+                }
+            }
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
@@ -206,9 +264,23 @@ public class IcpController : ControllerBase
     public async Task<ActionResult<List<PickingLogs>>> GetPickingLog(int peticion)
     {
         var logs = await _context.PickingLog
-            .Where(l => l.Peticion == peticion)
-            .OrderBy(l => l.FechaVerificacion)
-            .ToListAsync();
+        .Where(l => l.Peticion == peticion)
+        .Join(_context.Usuarios,
+              log => log.IdUsuario,
+              usuario => usuario.IdUsuario,
+              (log, usuario) => new PickingLogs
+              {
+                  Id = log.Id,
+                  Peticion = log.Peticion,
+                  Palet = log.Palet,
+                  Referencia = log.Referencia,
+                  CantidadQuitada = log.CantidadQuitada,
+                  FechaVerificacion = log.FechaVerificacion,
+                  IdUsuario = log.IdUsuario,
+                  NombreUsuario = usuario.UserName
+              })
+        .OrderBy(l => l.FechaVerificacion)
+        .ToListAsync();
         return Ok(logs);
     }
 }

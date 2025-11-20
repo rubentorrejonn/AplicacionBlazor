@@ -32,7 +32,7 @@ else
                     <td>@log.Referencia</td>
                     <td>@log.CantidadQuitada</td>
                     <td>@log.FechaVerificacion.ToShortDateString()</td>
-                    <td>@log.IdUsuario</td>
+                    <td>@log.NombreUsuario</td>
                 </tr>
             }
         </tbody>
@@ -47,6 +47,6 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        logs = await Http.GetFromJsonAsync<List<PickingLogs>>($"api/api/log/{Peticion}");
+        logs = await Http.GetFromJsonAsync<List<PickingLogs>>($"api/log/{Peticion}");
     }
 }

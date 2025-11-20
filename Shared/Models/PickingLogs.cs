@@ -31,6 +31,6 @@ namespace UltimateProyect.Shared.Models
         [Column("IDUSUARIO")]
         public int IdUsuario { get; set; }
         [Column("NOMBRE")]
-        public string? NombreUsuario { get; set; }
+        public string NombreUsuario { get; set; } = null!;
     }
 }
