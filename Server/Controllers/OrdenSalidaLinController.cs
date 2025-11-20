@@ -19,6 +19,20 @@ public class OrdenSalidaLinController : ControllerBase
         _context = context;
     }
 
+    [HttpDelete("por-peticion/{peticion}")]
+    public async Task<IActionResult> DeleteByPeticion(int peticion)
+    {
+        var lineas = await _context.Orden_Salida_Lin
+            .Where(l => l.Peticion == peticion)
+            .ToListAsync();
+        if (!lineas.Any())
+            return NoContent();
+
+        _context.Orden_Salida_Lin.RemoveRange(lineas);
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateOrdenSalidaLin([FromBody] List<OrdenSalidaLinDto> lineasDto)
     {

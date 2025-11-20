@@ -23,5 +23,7 @@ namespace UltimateProyect.Shared.Models
         public string Referencia { get; set; }
         [Column("F_CREACION")]
         public DateTime FCreacion { get; set; }
+        [Column("ESTADO")]
+        public int Estado { get; set; }
     }
 }

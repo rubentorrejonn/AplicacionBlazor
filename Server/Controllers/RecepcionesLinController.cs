@@ -297,7 +297,8 @@ public class RecepcionesLinController : ControllerBase
                         Albaran = albaran,
                         Palet = paletAsignado.Palet,
                         Referencia = dto.Referencia,
-                        FCreacion = DateTime.Now
+                        FCreacion = DateTime.Now,
+                        Estado = 1
                     });
                     // Lo reutilizare en otro sitio
                     /*_context.NSeries_Seguimiento.Add(new NSeriesSeguimiento

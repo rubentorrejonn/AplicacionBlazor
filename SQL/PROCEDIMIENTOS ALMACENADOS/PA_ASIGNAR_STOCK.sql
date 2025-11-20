@@ -25,19 +25,18 @@ ALTER PROCEDURE PA_ASIGNAR_STOCK
 	
 	@PETICION	INT,
 
-	@INVOKER	INT,		-- ESTE PARÁMETRO LO DEBEN TENER TODOS LOS PAS
-	@USUARIO	VARCHAR(12),	-- ESTE PARÁMETRO LO DEBEN TENER TODOS LOS PAS
+	@INVOKER	INT,		
+	@USUARIO	VARCHAR(12),	
 	@CULTURA	VARCHAR(5),
 
-	@RETCODE	INT OUTPUT, --DEFINICIÓN OBLIGATORIA
-	@MENSAJE	VARCHAR(1000)	OUTPUT	--DEFINICIÓN OBLIGATORIA
+	@RETCODE	INT OUTPUT, 
+	@MENSAJE	VARCHAR(1000)	OUTPUT	
 
 AS
 
 BEGIN TRY
 	--DECLARACION DE VARIABLES 
-
-	DECLARE @N_TRANS		INT = 0	 --NUMERO DE TRANSACCIONES ACTIVAS	(@@TRANCOUNT)
+	DECLARE @N_TRANS		INT = 0	 
 	SET @N_TRANS = @@TRANCOUNT
 	
 	DECLARE @REFERENCIA VARCHAR(30);
@@ -52,47 +51,74 @@ BEGIN TRY
 	--COMPROBACIONES
 	IF @PETICION IS NULL
 	BEGIN
-		SET @MENSAJE = 'EL PARAMETRO ' + CAST(@PETICION AS VARCHAR) + ' ES REQUERIDO.'
+		SET @MENSAJE = 'EL PARAMETRO @PETICION ES REQUERIDO.' 
 		SET @RETCODE = 1
+		RETURN @RETCODE
 	END
 	----------------------------------------------------------------------------------------------------------------------------------------------
-	/*IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
+	IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
 	BEGIN
 		BEGIN TRANSACTION TR_NOMBRE_TRANSACTION
-	END*/
+	END
 	----------------------------------------------------------------------------------------------------------------------------------------------
 
 	--OPERACIONES
-	--CURSOR PARA RECORRER LINEAS DE SALIDA
-	DECLARE CUR_SALIDA CURSOR FOR
-	SELECT 
-		REFERENCIA, CANTIDAD, LINEA
-	FROM 
-		ORDEN_SALIDA_LIN
-	WHERE 
-		PETICION = @PETICION
-	
-	OPEN CUR_SALIDA;
-	FETCH NEXT FROM CUR_SALIDA INTO @REFERENCIA, @CANTIDAD_REQUERIDA, @LINEA
-	--MIENTRAS QUE SEA [ 0 = EXITOSA ]
-	WHILE @@FETCH_STATUS = 0
+	-- TABLA TEMPORAL LOCAL PARA ITERAR LINEAS DE SALIDA (SEGUIMOS USANDO @LineasSalida ya que solo se puebla una vez)
+	DECLARE @LineasSalida TABLE (ID INT IDENTITY(1,1), REFERENCIA VARCHAR(30), CANTIDAD INT, LINEA INT);
+	INSERT INTO @LineasSalida (REFERENCIA, CANTIDAD, LINEA)
+	SELECT REFERENCIA, CANTIDAD, LINEA
+	FROM ORDEN_SALIDA_LIN
+	WHERE PETICION = @PETICION
+	ORDER BY LINEA;
+
+	DECLARE @TotalLineas INT = (SELECT COUNT(*) FROM @LineasSalida);
+	DECLARE @i INT = 1;
+
+	WHILE @i <= @TotalLineas
 	BEGIN
+		-- LIMPIEZA EXPLÍCITA DE LA TABLA TEMPORAL DE PALETS AL INICIO DE CADA ITERACIÓN
+		-- USAMOS DROP/CREATE para asegurarnos que esté totalmente vacía y reiniciada
+		IF OBJECT_ID('tempdb..#PaletsDisponibles') IS NOT NULL
+		BEGIN
+			DROP TABLE #PaletsDisponibles;
+		END
+
+		CREATE TABLE #PaletsDisponibles (ID INT IDENTITY(1,1), PALET INT, CANTIDAD INT);
+
+
+		SELECT 
+			@REFERENCIA = REFERENCIA,
+			@CANTIDAD_REQUERIDA = CANTIDAD,
+			@LINEA = LINEA
+		FROM
+			@LineasSalida
+		WHERE
+			ID = @i;
+
 		SET @CANTIDAD_ASIGNADA = 0;
-		--CURSOR PARA RECORRER PALETS
-		DECLARE CUR_PALETS CURSOR FOR
+
+		-- Poblar la tabla temporal GLOBAL (#TableName) con los datos de la línea actual
+		INSERT INTO #PaletsDisponibles (PALET, CANTIDAD)
 		SELECT
 			PALET, CANTIDAD
-		FROM 
+		FROM
 			PALETS
-		WHERE 
+		WHERE
 			REFERENCIA = @REFERENCIA AND ESTADO = '1'
 		ORDER BY
-			PALET
-		OPEN CUR_PALETS;
+			PALET;
 
-		FETCH NEXT FROM CUR_PALETS INTO @PALET, @CANTIDAD_DISPONIBLE;
-		WHILE @@FETCH_STATUS = 0 AND @CANTIDAD_ASIGNADA < @CANTIDAD_REQUERIDA
+		DECLARE @TotalPalets INT = (SELECT COUNT(*) FROM #PaletsDisponibles); -- Contamos de la tabla global
+		DECLARE @j INT = 1;
+
+		WHILE @j <= @TotalPalets AND @CANTIDAD_ASIGNADA < @CANTIDAD_REQUERIDA
 		BEGIN
+			SELECT 
+				@PALET = PALET,
+				@CANTIDAD_DISPONIBLE = CANTIDAD
+			FROM #PaletsDisponibles -- Usamos la tabla global
+			WHERE ID = @j;
+
 			--SACAR CANTIDAD POR PALET
 			IF(@CANTIDAD_REQUERIDA - @CANTIDAD_ASIGNADA) <= @CANTIDAD_DISPONIBLE
 			BEGIN
@@ -102,6 +128,7 @@ BEGIN TRY
 			BEGIN
 				SET @CANTIDAD_A_COGER = @CANTIDAD_DISPONIBLE
 			END
+			
 			--ASIGNAR EL PALET (CAMBIAR A ESTADO '3')
 			UPDATE
 				 PALETS
@@ -109,12 +136,7 @@ BEGIN TRY
 				 ESTADO = '3'
 			WHERE
 				PALET = @PALET
-			UPDATE
-				ORDEN_SALIDA_CAB
-			SET
-				ESTADO = '2'
-			WHERE
-				PETICION = @PETICION
+
 			--ASIGNAR VALORES A MOVIMIENTOS DENTRO DEL BUCLE
 			INSERT INTO MOVIMIENTOS(
 				PETICION,
@@ -140,61 +162,66 @@ BEGIN TRY
 			WHERE
 				 P.PALET = @PALET
 
-
 			-- ACTUALIZAR CANTIDAD ASIGNADA
 			SET @CANTIDAD_ASIGNADA = @CANTIDAD_ASIGNADA + @CANTIDAD_A_COGER
-			FETCH NEXT FROM CUR_PALETS INTO @PALET, @CANTIDAD_DISPONIBLE;
-		END
+			SET @j = @j + 1;
+		END -- FIN DEL BUCLE INTERNO DE PALETS
 
-		CLOSE CUR_PALETS;
-		DEALLOCATE CUR_PALETS;
-
-		IF @CANTIDAD_ASIGNADA <= @CANTIDAD_DISPONIBLE
+		-- Comprobaciones de stock. Si falla, hacemos ROLLBACK y RETURN inmediatamente.
+		IF @CANTIDAD_REQUERIDA IS NULL OR @CANTIDAD_ASIGNADA < @CANTIDAD_REQUERIDA
 		BEGIN
-			SET @MENSAJE = 'RESERVA DE MATERIAL COMPLETADA CON EXITO';
-			SET @RETCODE = 0
-			RETURN @RETCODE
-		END
-
-		IF @CANTIDAD_REQUERIDA IS NULL
-		BEGIN
-			SET @MENSAJE = 'NO HAY PRODUCTOS SELECCIONADOS'
+			IF @CANTIDAD_REQUERIDA IS NULL
+			BEGIN
+				SET @MENSAJE = 'NO HAY PRODUCTOS SELECCIONADOS PARA LA LINEA ' + CAST(@LINEA AS VARCHAR)
+			END
+			ELSE
+			BEGIN
+				SET @MENSAJE = 'NO HAY SUFICIENTE STOCK DISPONIBLE PARA LA REFERENCIA ' + @REFERENCIA + ' EN LA LINEA ' + CAST(@LINEA AS VARCHAR)
+			END
+			
 			SET @RETCODE = 1
+			
+			-- !!! CRUCIAL: HACER ROLLBACK Y SALIR INMEDIATAMENTE !!!
+			IF @N_TRANS = 0 AND @@TRANCOUNT > 0
+			BEGIN
+				ROLLBACK TRANSACTION TR_NOMBRE_TRANSACTION
+			END
+			-- Limpiamos la tabla temporal global antes de salir
+			IF OBJECT_ID('tempdb..#PaletsDisponibles') IS NOT NULL BEGIN DROP TABLE #PaletsDisponibles; END
 			RETURN @RETCODE
 		END
 
-		IF @CANTIDAD_ASIGNADA < @CANTIDAD_REQUERIDA
-		BEGIN
-			SET @MENSAJE = 'NO HAY SUFICIENTE STOCK DISPONIBLE PARA LA REFERENCIA ' + @REFERENCIA
-			SET @RETCODE = 1
-			RETURN @RETCODE
-		END
+		SET @i = @i + 1;
+	END -- FIN DEL BUCLE PRINCIPAL DE LINEAS
 
-		FETCH NEXT FROM CUR_SALIDA INTO @REFERENCIA, @CANTIDAD_REQUERIDA
-	END
-	CLOSE CUR_SALIDA;
-	DEALLOCATE CUR_SALIDA;
-		
-	
+	-- Si todo va bien para todas las líneas, actualiza el estado de la cabecera una sola vez al final
+	UPDATE ORDEN_SALIDA_CAB SET ESTADO = '2' WHERE PETICION = @PETICION;
+
 	----------------------------------------------------------------------------------------------------------------------------------------------
-	/*IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
+	IF @N_TRANS = 0 AND @@TRANCOUNT > 0				-- Si la transacción se inició aquí, la confirmamos
 	BEGIN
 		COMMIT TRANSACTION TR_NOMBRE_TRANSACTION
-	END*/
+	END
 	----------------------------------------------------------------------------------------------------------------------------------------------
 
+	-- Limpiamos la tabla temporal global al final del éxito
+	IF OBJECT_ID('tempdb..#PaletsDisponibles') IS NOT NULL BEGIN DROP TABLE #PaletsDisponibles; END
 
-	SET @MENSAJE = 'El proceso se ha realizado correctamente.'
+	-- MENSAJE FINAL DE ÉXITO
+	SET @MENSAJE = 'El proceso se ha realizado correctamente. Se han procesado ' + CAST(@TotalLineas AS VARCHAR) + ' líneas.'
 	SET @RETCODE = 0
 	RETURN @RETCODE
 END TRY
 BEGIN CATCH
 	----------------------------------------------------------------------------------------------------------------------------------------------
-	/*IF @N_TRANS = 0 AND @@TRANCOUNT > 0				-- Si hay una transacción por encima no hacemos nada
+	IF @N_TRANS = 0 AND @@TRANCOUNT > 0				-- Si hay una transacción por encima no hacemos nada
 	BEGIN
 		ROLLBACK TRANSACTION TR_NOMBRE_TRANSACTION
-	END*/
+	END
 	----------------------------------------------------------------------------------------------------------------------------------------------
+	-- Limpiamos la tabla temporal global en caso de error de sistema
+	IF OBJECT_ID('tempdb..#PaletsDisponibles') IS NOT NULL BEGIN DROP TABLE #PaletsDisponibles; END
+
 	IF @MENSAJE = '' 
 	BEGIN
 		SET  @MENSAJE = ERROR_MESSAGE()
@@ -204,9 +231,6 @@ BEGIN CATCH
 		
 	RETURN @RETCODE
 END CATCH
-
-	SET @RETCODE = -1		
-	RETURN @RETCODE
 
 
 

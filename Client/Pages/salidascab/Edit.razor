@@ -147,6 +147,7 @@ else
 
         try
         {
+            await Http.DeleteAsync($"api/ordensalidalin/por-peticion/{PeticionActual}");
             await Http.PostAsJsonAsync("api/OrdenSalidaLin", lineas);
             await JSRuntime.InvokeVoidAsync("alert", "Líneas de pedido creadas correctamente.");
             SalidasService.Clear();

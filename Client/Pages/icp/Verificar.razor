@@ -31,6 +31,7 @@ else
         <tbody>
             @for (int i = 0; i < verificacion.Lineas.Count; i++)
             {
+                var currentIndex = i;
                 var linea = verificacion.Lineas[i];
                 <tr>
                     <td>@linea.Linea</td>
@@ -41,7 +42,7 @@ else
                     <td>
                         @if (linea.RequiereNSerie.HasValue)
                         {
-                            <textarea @oninput="@(e => OnNumerosSerieChanged(i, e.Value?.ToString() ?? ""))"
+                            <textarea @oninput="@(e => OnNumerosSerieChanged(currentIndex, e.Value?.ToString() ?? ""))"
                                       rows="3"
                                       class="form-control"
                                       placeholder="Ingrese numeros de serie de longitud: {@(linea.LongNSerie)}">@string.Join("\n", linea.NumerosSerie)</textarea>
@@ -103,6 +104,24 @@ else
     private async Task ConfirmarVerificacion()
     {
         if (verificacion == null) return;
+
+        foreach (var linea in verificacion.Lineas)
+        {
+            if (linea.RequiereNSerie == true)
+            {
+                var numerosInvalidos = linea.NumerosSerie
+                    .Where(ns => !string.IsNullOrEmpty(ns))
+                    .Except(linea.NumerosSerieValidos, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (numerosInvalidos.Any())
+                {
+                    await JSRuntime.InvokeVoidAsync("alert",
+                        $"Números de serie inválidos en la línea {linea.Linea}: {string.Join(", ", numerosInvalidos)}");
+                    return;
+                }
+            }
+        }
 
         try
         {

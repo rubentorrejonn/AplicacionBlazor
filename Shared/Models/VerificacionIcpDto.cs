@@ -16,4 +16,5 @@ public class LineaVerificacionDto
     public bool? RequiereNSerie { get; set; }
     public int? LongNSerie { get; set; }
     public List<string> NumerosSerie { get; set; } = new();
+    public List<string> NumerosSerieValidos { get; set; } = new();
 }

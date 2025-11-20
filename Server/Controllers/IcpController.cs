@@ -45,10 +45,17 @@ public class IcpController : ControllerBase
                       DesReferencia = refe.DesReferencia,
                       Cantidad = lin.Cantidad,
                       RequiereNSerie = refe.NSerie,
-                      LongNSerie = refe.LongNSerie
+                      LongNSerie = refe.LongNSerie,
+
+                       NumerosSerieValidos = _context.NSeries_Recepciones
+                      .Where(ns => ns.Referencia == lin.Referencia)
+                      .Select(ns => ns.NSerie)
+                      .ToList()
                   })
             .OrderBy(l => l.Linea)
             .ToListAsync();
+
+
 
         var verificacion = new VerificacionIcpDto
         {
@@ -83,11 +90,40 @@ public class IcpController : ControllerBase
         {
             foreach (var linea in verificacion.Lineas)
             {
+
                 var cantidadNecesaria = linea.Cantidad;
                 var paletsDisponibles = await _context.Palets
                     .Where(p => p.Referencia == linea.Referencia && p.Estado == 3)
                     .OrderBy(p => p.Palet)
                     .ToListAsync();
+                var nsDisponibles = await _context.NSeries_Recepciones
+                    .Where(ns => ns.Referencia == linea.Referencia && ns.Estado == 1)
+                    .Select(ns => ns.NSerie)
+                    .ToListAsync();
+
+                var nsInvalidos = linea.NumerosSerie
+                    .Where(ns => !string.IsNullOrEmpty(ns))
+                    .Except(nsDisponibles, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (nsInvalidos.Any())
+                {
+                    return BadRequest($"Números de serie inválidos: {string.Join(", ", nsInvalidos)}");
+                }
+
+                foreach (var nserie in linea.NumerosSerie)
+                {
+                    if (!string.IsNullOrEmpty(nserie))
+                    {
+                        var nsEntity = await _context.NSeries_Recepciones
+                            .FirstOrDefaultAsync(ns => ns.NSerie == nserie && ns.Referencia == linea.Referencia);
+                        if (nsEntity != null)
+                        {
+                            nsEntity.Estado = 0;
+                            _context.NSeries_Recepciones.Update(nsEntity);
+                        }
+                    }
+                }
 
                 foreach (var palet in paletsDisponibles)
                 {
