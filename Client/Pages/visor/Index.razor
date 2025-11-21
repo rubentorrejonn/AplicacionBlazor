@@ -3,7 +3,7 @@
 @inject HttpClient Http
 @inject AuthenticationStateProvider Authe
 
-<h3>Historial Completo de Picking</h3>
+<h3>Historial Completo de Pedidos</h3>
 
 @if (allLogs == null)
 {
@@ -11,11 +11,11 @@
 }
 else if (!allLogs.Any())
 {
-    <p>No hay registros de picking.</p>
+    <p>No hay registros de pedidos.</p>
 }
 else
 {
-    <table class="table">
+    <table class="table table-bordered border-primary">
         <thead>
             <tr>
                 <th>Petición</th>

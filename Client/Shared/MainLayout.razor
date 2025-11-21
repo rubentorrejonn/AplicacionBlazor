@@ -12,7 +12,7 @@
             <div class="top-row px-4">
                 <AuthorizeView>
                     <Authorized>
-                        <span class="text-black">@context.User.Identity.Name</span>
+                        <span class="text-black fw-bold">@context.User.Identity.Name</span>
                         <button class="btn btn-link text-blue" @onclick="Logout">Salir</button>
                     </Authorized>
                     <NotAuthorized>

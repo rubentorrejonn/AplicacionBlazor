@@ -1,9 +1,86 @@
 ﻿@page "/"
+@inject AuthenticationStateProvider AuthStateProvider
 
-<PageTitle>Index</PageTitle>
+<PageTitle>Inicio | Sistema WMS</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container mt-5">
+    <div class="jumbotron bg-light p-5 rounded-lg shadow-sm">
+        <h1 class="display-4">Bienvenido al Sistema WMS</h1>
 
-Welcome to your new app.
+        @if (authState != null && authState.User.Identity.IsAuthenticated)
+        {
+            <p class="lead">
+                Hola, @authState.User.Identity.Name. Utiliza el menú lateral para gestionar tus tareas.
+            </p>
+        }
+        else
+        {
+            <p class="lead">
+                Por favor, inicia sesión para acceder a las funcionalidades del almacén.
+            </p>
+            <a class="btn btn-primary btn-lg" href="/login" role="button">Iniciar Sesión</a>
+        }
+    </div>
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+    @if (authState != null && (authState.User.IsInRole("ICP") || authState.User.IsInRole("Administrador")))
+    {
+        <div class="row mt-4">
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Gestión de Palets (ICP)</h5>
+                        <p class="card-text">Consulta y actualiza el estado de los palets en el almacén.</p>
+                        <a href="/moverpalets" class="btn btn-outline-primary">Ver Palets</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Órdenes de Salida (ICP)</h5>
+                        <p class="card-text">Gestiona las peticiones de picking y albaranes de salida.</p>
+                        <a href="/icp" class="btn btn-outline-primary">Ver Órdenes</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (authState != null && authState.User.IsInRole("Cliente"))
+    {
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Mis Pedidos</h5>
+                        <p class="card-text">Consulta el estado de tus pedidos y envíos recientes.</p>
+                        <a href="/log" class="btn btn-outline-primary">Ver Pedidos</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Inventario Actual</h5>
+                        <p class="card-text">Revisa el stock disponible de tus productos.</p>
+                        <a href="/inventario-cliente" class="btn btn-outline-primary">Ver Inventario</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else if (authState != null && !authState.User.Identity.IsAuthenticated)
+    {
+        <div class="mt-4">
+            <SurveyPrompt Title="¿Necesitas ayuda?" />
+        </div>
+    }
+</div>
+
+@code {
+    private AuthenticationState authState;
+
+    protected override async Task OnInitializedAsync()
+    {
+        authState = await AuthStateProvider.GetAuthenticationStateAsync();
+    }
+}

@@ -3,14 +3,17 @@
 @using UltimateProyect.Shared.Models
 @inject HttpClient Http
 @inject NavigationManager Nav
-@attribute [Authorize(Policy = "OperarioOrICP")]
+@attribute [Authorize(Policy = "Cliente")]
 
 <h3>Crear Nueva Referencia</h3>
 
 <EditForm Model="NuevaReferencia" OnValidSubmit="CreateRef">
+    <DataAnnotationsValidator />
+
     <div class="mb-3">
         <label>Referencia</label>
         <InputText class="form-control" @bind-Value="NuevaReferencia.Referencia" />
+        <ValidationMessage For="@(() => NuevaReferencia.Referencia)" />
     </div>
     <div class="mb-3">
         <label>Descripción</label>

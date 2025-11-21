@@ -4,6 +4,7 @@ namespace UltimateProyect.Shared.Models;
 
 public class Referencias
 {
+    [ValidacionReferencia]
     [Column("REFERENCIA")]
     public string Referencia { get; set; } = null!;
 
