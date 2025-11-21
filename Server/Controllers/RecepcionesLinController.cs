@@ -436,13 +436,11 @@ public class RecepcionesLinController : ControllerBase
                 {
                     command.CommandType = CommandType.StoredProcedure;
 
-                    // Parámetros de entrada
                     command.Parameters.Add(new SqlParameter("@PETICION", SqlDbType.Int) { Value = peticion });
                     command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 }); 
                     command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = ""});
                     command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
 
-                    // Parámetros de salida
                     var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
                     var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
 

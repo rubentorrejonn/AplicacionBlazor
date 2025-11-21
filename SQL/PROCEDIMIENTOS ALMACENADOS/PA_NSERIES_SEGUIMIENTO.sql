@@ -40,9 +40,10 @@ AS
 
 BEGIN TRY
 	--DECLARACION DE VARIABLES 
+	DECLARE @ALBARAN_RECEPCION INT;
 
-	/*DECLARE @N_TRANS		INT = 0	 --NUMERO DE TRANSACCIONES ACTIVAS	(@@TRANCOUNT)
-	SET @N_TRANS = @@TRANCOUNT*/
+	DECLARE @N_TRANS		INT = 0	 --NUMERO DE TRANSACCIONES ACTIVAS	(@@TRANCOUNT)
+	SET @N_TRANS = @@TRANCOUNT
 
 	--COMPROBACIONES
 	----------------------------------------------------------------------------------------------------------------------------------------------
@@ -53,8 +54,20 @@ BEGIN TRY
 	----------------------------------------------------------------------------------------------------------------------------------------------
 
 	--OPERACIONES
+	SELECT TOP 1 @ALBARAN_RECEPCION = ALBARAN
+	FROM NSeries_Recepciones
+	WHERE NSerie = @NSERIE AND Referencia = @REFERENCIA;
+
+	IF @ALBARAN_RECEPCION IS NULL
+	BEGIN
+		SET @MENSAJE = 'No se encontró el albarán de recepción para este número de serie.';
+		SET @RETCODE = -1;
+		RETURN;
+	END
+
 	INSERT INTO NSERIES_SEGUIMIENTO(NSERIE, PALET, ALBARAN, REFERENCIA, F_PICKING)
-	VALUES (@NSERIE, @PALET, @ALBARAN, @REFERENCIA, GETDATE());
+	VALUES (@NSERIE, @PALET, @ALBARAN_RECEPCION, @REFERENCIA, GETDATE());
+
 
 	----------------------------------------------------------------------------------------------------------------------------------------------
 	/*IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
@@ -66,7 +79,8 @@ BEGIN TRY
 
 	SET @MENSAJE = 'El proceso se ha realizado correctamente.'
 	SET @RETCODE = 0
-	RETURN @RETCODE
+	
+
 END TRY
 BEGIN CATCH
 	----------------------------------------------------------------------------------------------------------------------------------------------
@@ -75,18 +89,10 @@ BEGIN CATCH
 		ROLLBACK TRANSACTION TR_NOMBRE_TRANSACTION
 	END*/
 	----------------------------------------------------------------------------------------------------------------------------------------------
-	IF @MENSAJE = '' 
-	BEGIN
-		SET  @MENSAJE = ERROR_MESSAGE()
-	END
-	
-	SET @RETCODE = -1
-		
-	RETURN @RETCODE
-END CATCH
+		SET  @MENSAJE = ISNULL(ERROR_MESSAGE(), 'Error desconocido en PA_NSERIES_SEGUIMIENTO');
+		SET @RETCODE = -1
 
-	SET @RETCODE = -1		
-	RETURN @RETCODE
+END CATCH
 
 
 

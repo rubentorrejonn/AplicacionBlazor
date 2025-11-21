@@ -181,45 +181,70 @@ public class IcpController : ControllerBase
 
             foreach (var linea in verificacion.Lineas)
             {
-                if (linea.RequiereNSerie == true) continue;
-
-                var paletsDeEstaLinea = asignacionesPorLinea.GetValueOrDefault(linea.Linea, new List<Palets>());
-                if (!paletsDeEstaLinea.Any()) continue;
-
-                var paletAsignado = paletsDeEstaLinea.First();
-
-                foreach (var nserie in linea.NumerosSerie)
+                if (linea.RequiereNSerie == true)
                 {
-                    if (string.IsNullOrEmpty(nserie)) continue;
 
-                    var connectionString = _context.Database.GetConnectionString();
-                    using var connection = new SqlConnection(connectionString);
-                    await connection.OpenAsync();
 
-                    using var command = new SqlCommand("PA_NSERIES_SEGUIMIENTO", connection);
-                    command.CommandType = CommandType.StoredProcedure;
+                    var paletsDeEstaLinea = asignacionesPorLinea.GetValueOrDefault(linea.Linea, new List<Palets>());
+                    if (!paletsDeEstaLinea.Any()) continue;
 
-                    command.Parameters.Add(new SqlParameter("@NSERIE", SqlDbType.VarChar, 30) { Value = nserie });
-                    command.Parameters.Add(new SqlParameter("@PALET", SqlDbType.Int) { Value = paletAsignado.Palet });
-                    command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = verificacion.Peticion });
-                    command.Parameters.Add(new SqlParameter("@REFERENCIA", SqlDbType.VarChar, 30) { Value = linea.Referencia });
-                    command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
-                    command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
-                    command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
+                    var paletAsignado = paletsDeEstaLinea.First();
 
-                    var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
-                    command.Parameters.Add(retCodeParam);
-                    command.Parameters.Add(mensajeParam);
-
-                    await command.ExecuteNonQueryAsync();
-
-                    int retCode = (int)retCodeParam.Value;
-                    if (retCode != 0)
+                    foreach (var nserie in linea.NumerosSerie)
                     {
-                        var mensaje = mensajeParam.Value?.ToString() ?? "Error desconocido en PA_NSERIES_SEGUIMIENTO";
-                        await transaction.RollbackAsync();
-                        return BadRequest($"Error en el seguimiento de NSerie '{nserie}': {mensaje}");
+                        if (string.IsNullOrEmpty(nserie)) continue;
+
+                        var connectionString = _context.Database.GetConnectionString();
+                        using (var connection = new SqlConnection(connectionString))
+                        {
+
+                            await connection.OpenAsync();
+
+                            using (var command = new SqlCommand("PA_NSERIES_SEGUIMIENTO", connection))
+                            {
+                                command.CommandType = CommandType.StoredProcedure;
+
+                                command.Parameters.Add(new SqlParameter("@NSERIE", SqlDbType.VarChar, 30) { Value = nserie });
+                                command.Parameters.Add(new SqlParameter("@PALET", SqlDbType.Int) { Value = paletAsignado.Palet });
+                                command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = verificacion.Peticion });
+                                command.Parameters.Add(new SqlParameter("@REFERENCIA", SqlDbType.VarChar, 30) { Value = linea.Referencia });
+                                command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
+                                command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
+                                command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
+
+                                var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                                var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
+                                command.Parameters.Add(retCodeParam);
+                                command.Parameters.Add(mensajeParam);
+
+                                try
+                                {
+                                    await command.ExecuteNonQueryAsync();
+
+                                    var retCodeObj = retCodeParam.Value;
+                                    int retCode = retCodeObj is int ? (int)retCodeObj : -1;
+
+                                    Console.WriteLine($"[DEBUG] RETCODE recibido: {retCode}");
+
+                                    if (retCode != 0)
+                                    {
+                                        Console.WriteLine($"[ERROR] PA_NSERIES_SEGUIMIENTO falló con RETCODE: {retCode}");
+                                        await transaction.RollbackAsync();
+                                        return BadRequest($"Error en el seguimiento de NSerie '{nserie}': {mensajeParam.Value?.ToString() ?? "Error desconocido"}");
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("[INFO] PA_NSERIES_SEGUIMIENTO ejecutado correctamente (RETCODE: 0).");
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine($"[EXCEPCION EN PA_NSERIES_SEGUIMIENTO]: {ex.Message}");
+                                    await transaction.RollbackAsync();
+                                    return StatusCode(500, new { Message = $"Error interno al confirmar la verificación. Detalle: {ex.Message}" });
+                                }
+                            }
+                        }
                     }
                 }
             }
