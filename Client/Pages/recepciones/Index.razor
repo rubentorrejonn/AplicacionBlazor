@@ -8,9 +8,9 @@
 
 <div class="mb-3">
     <input @bind="filtroAlbaran"
-           class="form-control"
-           placeholder="Buscar por albarán..."
-           @oninput="OnFiltroChanged" />
+    class="form-control"
+    placeholder="Buscar por albarán..."
+    @oninput="OnFiltroChanged" />
 </div>
 
 <a href="/recepciones/create" class="btn btn-success mb-3">Crear Nueva Recepción</a>
@@ -48,25 +48,25 @@ else
                         @if (cab.Estado < 2)
                         {
                             <button class="btn btn-sm btn-outline-secondary flex-fill"
-                                    @onclick="() => Recepcionar(cab)"
-                                    disabled="@bloqueado">
+                            @onclick="() => Recepcionar(cab)"
+                            disabled="@bloqueado">
                                 <i class="bi bi-box-seam me-1"></i>Recepcionar
                             </button>
                             <button class="btn btn-sm btn-outline-danger flex-fill"
-                                    @onclick="() => Eliminar(cab.Albaran)"
-                                    disabled="@bloqueado">
+                            @onclick="() => Eliminar(cab.Albaran)"
+                            disabled="@bloqueado">
                                 <i class="bi bi-trash me-1"></i>Eliminar
                             </button>
                         }
                         else if (cab.Estado == 2)
                         {
                             <a class="btn btn-sm btn-outline-primary flex-fill @(bloquearEdit ? "disabled" : "")"
-                               href="/recepciones/edit/@cab.Albaran">
+                            href="/recepciones/edit/@cab.Albaran">
                                 <i class="bi bi-pencil me-1"></i>Editar
                             </a>
                             <button class="btn btn-sm btn-outline-warning flex-fill"
-                                    @onclick="() => EnviarAICP(cab)"
-                                    disabled="@bloquearICP">
+                            @onclick="() => EnviarAICP(cab)"
+                            disabled="@bloquearICP">
                                 <i class="bi bi-send me-1"></i>Enviar a ICP
                             </button>
                         }
@@ -133,6 +133,7 @@ else
 
         await Http.DeleteAsync($"api/RecepcionesCab/{albaran}");
         cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+        AplicarFiltro();
         StateHasChanged();
     }
 

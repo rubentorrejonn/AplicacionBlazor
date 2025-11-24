@@ -4,48 +4,64 @@
 @inject NavigationManager Nav
 
 <h3>Crear Cabecera de Salida</h3>
+
 <EditForm Model="nuevaOrdenCab" OnValidSubmit="CreateOrden">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="alert alert-danger" />
+
     <div class="mb-3">
         <label>Nombre Cliente</label>
-        <InputText class="form-control" @bind-Value="nuevaOrdenCab.NombreCliente" disabled/>
+        <InputText class="form-control" @bind-Value="nuevaOrdenCab.NombreCliente" />
+        <ValidationMessage For="@(() => nuevaOrdenCab.NombreCliente)" class="text-danger" />
     </div>
+
     <div class="mb-3">
         <label>Dirección de Entrega</label>
-        <InputText class="form-control" @bind-Value="nuevaOrdenCab.DireccionEntrega"/>
+        <InputText class="form-control" @bind-Value="nuevaOrdenCab.DireccionEntrega" />
+        <ValidationMessage For="@(() => nuevaOrdenCab.DireccionEntrega)" class="text-danger" />
     </div>
+
     <div class="mb-3">
         <label>Código Postal</label>
-        <InputNumber class="form-control" @bind-Value="nuevaOrdenCab.CodigoPostal"/>
+        <InputNumber class="form-control" @bind-Value="nuevaOrdenCab.CodigoPostal" />
+        <ValidationMessage For="@(() => nuevaOrdenCab.CodigoPostal)" class="text-danger" />
     </div>
+
     <div class="mb-3">
         <label>Población</label>
-        <InputText class="form-control" @bind-Value="nuevaOrdenCab.Poblacion"/>
+        <InputText class="form-control" @bind-Value="nuevaOrdenCab.Poblacion" />
+        <ValidationMessage For="@(() => nuevaOrdenCab.Poblacion)" class="text-danger" />
     </div>
+
     <div class="mb-3">
         <label>Provincia</label>
-        <InputText class="form-control" @bind-Value="nuevaOrdenCab.Provincia"/>
+        <InputText class="form-control" @bind-Value="nuevaOrdenCab.Provincia" />
+        <ValidationMessage For="@(() => nuevaOrdenCab.Provincia)" class="text-danger" />
     </div>
+
     <div class="mb-3">
-        <label>Telefono</label>
-        <InputText class="form-control" @bind-Value="nuevaOrdenCab.Telefono"/>
-        <ValidationMessage for= "@(()=> nuevaOrdenCab.Telefono)"/>
+        <label>Teléfono</label>
+        <InputText class="form-control" @bind-Value="nuevaOrdenCab.Telefono" />
+        <ValidationMessage For="@(() => nuevaOrdenCab.Telefono)" class="text-danger" />
     </div>
-<button class="btn btn-primary" type="submit">Crear Cabecera</button>
-<button class="btn btn-danger" @onclick="Cancel">Cancelar</button>
+
+    <button class="btn btn-primary" type="submit">Crear Cabecera</button>
+    <button class="btn btn-danger" @onclick="Cancel">Cancelar</button>
 </EditForm>
 
 @code {
     private OrdenSalidaCab nuevaOrdenCab = new()
-    {
-        NombreCliente = "MediaMarkt",
-        FCreacion = DateTime.Now,
-        Estado = 0
-    };
+        {
+            NombreCliente = "MediaMarkt",
+            FCreacion = DateTime.Now,
+            Estado = 0
+        };
 
     private async Task CreateOrden()
     {
         await Http.PostAsJsonAsync("api/ordensalidacab", nuevaOrdenCab);
         Nav.NavigateTo("/salidacab");
     }
+
     private void Cancel() => Nav.NavigateTo("/salidacab");
 }

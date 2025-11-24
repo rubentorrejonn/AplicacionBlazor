@@ -49,9 +49,14 @@ public class IcpController : ControllerBase
                       RequiereNSerie = refe.NSerie,
                       LongNSerie = refe.LongNSerie,
                       NumerosSerieValidos = _context.NSeries_Recepciones
-                         .Where(ns => ns.Referencia == lin.Referencia)
-                         .Select(ns => ns.NSerie)
-                         .ToList()
+                        .Where(ns => ns.Referencia == lin.Referencia && ns.Estado == 1)
+                        .Join(_context.Palets,
+                              ns => new { ns.Palet, ns.Referencia },
+                              p => new { p.Palet, p.Referencia },
+                              (ns, p) => new { ns.NSerie, p.Estado })
+                        .Where(x => x.Estado == 3)
+                        .Select(x => x.NSerie)
+                        .ToList()
                   })
             .OrderBy(l => l.Linea)
             .ToListAsync();
@@ -108,7 +113,7 @@ public class IcpController : ControllerBase
                     palet.Cantidad -= cantidadARestar;
                     cantidadNecesaria -= cantidadARestar;
 
-                    paletsAsignadosALinea.Add(palet); // ✅ Añadido
+                    paletsAsignadosALinea.Add(palet);
                     cantidadesPorPalet.Add(cantidadARestar);
 
                     if (palet.Cantidad == 0)

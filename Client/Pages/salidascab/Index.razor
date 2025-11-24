@@ -113,6 +113,7 @@ else
 
         await Http.DeleteAsync($"api/ordensalidacab/{peticion}");
         salidaCab = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/ordensalidacab");
+        AplicarFiltro();
         StateHasChanged();
     }
 

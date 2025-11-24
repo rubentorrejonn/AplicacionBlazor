@@ -3,7 +3,6 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Data;
-using System.Runtime.InteropServices;
 using System.Text;
 using UltimateProyect.Server.Data;
 using UltimateProyect.Shared.Models;
@@ -121,6 +120,7 @@ public class RecepcionesLinController : ControllerBase
         await _context.SaveChangesAsync();
         return NoContent();
     }
+
     public class ConfirmarIcpRequest
     {
         public string Ubicacion { get; set; } = null!;
@@ -181,47 +181,37 @@ public class RecepcionesLinController : ControllerBase
 
         try
         {
-
             var paletsDelAlbaran = await _context.Palets
                 .Where(p => p.Albaran == albaran)
                 .Select(p => p.Palet)
-            .ToListAsync();
+                .ToListAsync();
 
             if (paletsDelAlbaran.Any())
             {
-                // Eliminamos NSeries_Recepciones que apunten a esos palets
                 var nseriesExistentes = await _context.NSeries_Recepciones
                     .Where(ns => paletsDelAlbaran.Contains(ns.Palet))
                     .ToListAsync();
                 _context.NSeries_Recepciones.RemoveRange(nseriesExistentes);
-
-                // Si también gestionas NSeries_Seguimiento aquí,
-                /*
-                var seguimientosExistentes = await _context.NSeries_Seguimiento
-                    .Where(ns => paletsDelAlbaran.Contains(ns.Palet))
-                    .ToListAsync();
-                _context.NSeries_Seguimiento.RemoveRange(seguimientosExistentes);
-                */
             }
 
             var paletsAnteriores = await _context.Palets
-             .Where(p => p.Albaran == albaran)
-                 .ToListAsync();
+                .Where(p => p.Albaran == albaran)
+                .ToListAsync();
             _context.Palets.RemoveRange(paletsAnteriores);
 
-            await _context.SaveChangesAsync(); // Guardamos la eliminación de NSeries y Palets
+            await _context.SaveChangesAsync();
 
-            //Crear nuevos palets según Bien/Mal
+            // === 1. Crear palets (bien y mal) ===
             var nuevosPalets = new List<Palets>();
             foreach (var dto in lineasDto)
             {
                 // Palets para Bien
                 if (dto.Bien > 0)
                 {
-                    var unidades = dto.Bien.Value;
-                    while (unidades > 0)
+                    var unidadesRestantes = dto.Bien.Value;
+                    while (unidadesRestantes > 0)
                     {
-                        var cant = Math.Min(unidades, 1000);
+                        var cant = Math.Min(unidadesRestantes, 1000);
                         nuevosPalets.Add(new Palets
                         {
                             Referencia = dto.Referencia,
@@ -231,17 +221,17 @@ public class RecepcionesLinController : ControllerBase
                             Estado = 1,
                             FInsert = fechaConfirmacion
                         });
-                        unidades -= cant;
+                        unidadesRestantes -= cant;
                     }
                 }
 
                 // Palets para Mal
                 if (dto.Mal > 0)
                 {
-                    var unidades = dto.Mal.Value;
-                    while (unidades > 0)
+                    var unidadesRestantes = dto.Mal.Value;
+                    while (unidadesRestantes > 0)
                     {
-                        var cant = Math.Min(unidades, 1000);
+                        var cant = Math.Min(unidadesRestantes, 1000);
                         nuevosPalets.Add(new Palets
                         {
                             Referencia = dto.Referencia,
@@ -251,67 +241,83 @@ public class RecepcionesLinController : ControllerBase
                             Estado = 2,
                             FInsert = fechaConfirmacion
                         });
-                        unidades -= cant;
+                        unidadesRestantes -= cant;
                     }
                 }
             }
-
             _context.Palets.AddRange(nuevosPalets);
-            await _context.SaveChangesAsync(); // Guardamos nuevos palets
+            await _context.SaveChangesAsync();
 
+            // === 2. Asignar NSeries a los palets correctos ===
             foreach (var dto in lineasDto)
             {
-                var refData = referenciasValidas[dto.Referencia];
-                if (!refData.NSerie.HasValue || !refData.NSerie.Value)
-                    continue;
+                if (!dto.RequiereNSerie) continue;
 
-                var paletsDeEstaRef = nuevosPalets
-                    .Where(p => p.Referencia == dto.Referencia)
+                var paletsBien = nuevosPalets
+                    .Where(p => p.Referencia == dto.Referencia && p.Ubicacion == "UBI-5")
                     .OrderBy(p => p.Palet)
                     .ToList();
 
-                var todosNSeries = dto.NumerosSerieBien.Concat(dto.NumerosSerieMal).ToList();
-                var esperado = (dto.Bien ?? 0) + (dto.Mal ?? 0);
+                var paletsMal = nuevosPalets
+                    .Where(p => p.Referencia == dto.Referencia && p.Ubicacion == "UBI-4")
+                    .OrderBy(p => p.Palet)
+                    .ToList();
 
-                if (todosNSeries.Count != esperado)
-                    return BadRequest($"Se esperaban {esperado} números de serie para la referencia {dto.Referencia}.");
+                // Validar cantidad de NSeries
+                var totalNSeries = dto.NumerosSerieBien.Count + dto.NumerosSerieMal.Count;
+                var totalEsperado = (dto.Bien ?? 0) + (dto.Mal ?? 0);
+                if (totalNSeries != totalEsperado)
+                    return BadRequest($"Se esperaban {totalEsperado} NSeries, se proporcionaron {totalNSeries}.");
 
-                if (refData.LongNSerie.HasValue)
+                // Asignar NSeries Bien
+                int idxBien = 0;
+                int unidadesAsignadasBien = 0;
+                foreach (var ns in dto.NumerosSerieBien)
                 {
-                    var longitudEsperada = refData.LongNSerie.Value;
-                    foreach (var nserie in todosNSeries)
-                    {
-                        if (string.IsNullOrEmpty(nserie))
-                            return BadRequest("Se proporcionó un número de serie vacío.");
-                        if (nserie.Length != longitudEsperada)
-                            return BadRequest($"Longitud inválida en número de serie '{nserie}' (esperado: {longitudEsperada}).");
-                    }
-                }
-
-                for (int i = 0; i < todosNSeries.Count; i++)
-                {
-                    var paletAsignado = paletsDeEstaRef[i % paletsDeEstaRef.Count];
+                    if (idxBien >= paletsBien.Count) break;
+                    var palet = paletsBien[idxBien];
                     _context.NSeries_Recepciones.Add(new NSeriesRecepciones
                     {
-                        NSerie = todosNSeries[i],
+                        NSerie = ns,
                         Albaran = albaran,
-                        Palet = paletAsignado.Palet,
+                        Palet = palet.Palet,
                         Referencia = dto.Referencia,
                         FCreacion = DateTime.Now,
                         Estado = 1
                     });
-                    // Lo reutilizare en otro sitio
-                    /*_context.NSeries_Seguimiento.Add(new NSeriesSeguimiento
+                    unidadesAsignadasBien++;
+                    if (unidadesAsignadasBien >= palet.Cantidad)
                     {
-                        NSerie = todosNSeries[i],
-                        Palet = paletAsignado.Palet,
+                        idxBien++;
+                        unidadesAsignadasBien = 0;
+                    }
+                }
+
+                // Asignar NSeries Mal
+                int idxMal = 0;
+                int unidadesAsignadasMal = 0;
+                foreach (var ns in dto.NumerosSerieMal)
+                {
+                    if (idxMal >= paletsMal.Count) break;
+                    var palet = paletsMal[idxMal];
+                    _context.NSeries_Recepciones.Add(new NSeriesRecepciones
+                    {
+                        NSerie = ns,
+                        Albaran = albaran,
+                        Palet = palet.Palet,
                         Referencia = dto.Referencia,
-                        FPicking = DateTime.Now
-                    });*/
+                        FCreacion = DateTime.Now,
+                        Estado = 0
+                    });
+                    unidadesAsignadasMal++;
+                    if (unidadesAsignadasMal >= palet.Cantidad)
+                    {
+                        idxMal++;
+                        unidadesAsignadasMal = 0;
+                    }
                 }
             }
-
-            await _context.SaveChangesAsync(); // Guardamos nuevos NSeries
+            await _context.SaveChangesAsync();
 
             var referenciasIds = request.Lineas.Select(l => l.Referencia).Distinct().ToList();
             var referenciasDict = await _context.Referencias
@@ -330,80 +336,36 @@ public class RecepcionesLinController : ControllerBase
                 cuerpoEmail.AppendLine($"{linea.Referencia}\t\t{linea.DesReferencia}\t\t\t{linea.Bien ?? 0}");
             }
 
-            // Actualizar estado de la cabecera
             cabecera.FConfirmacion = fechaConfirmacion;
             cabecera.Estado = 4;
             cabecera.DesEstado = "Confirmado";
             _context.Recepciones_Cab.Update(cabecera);
 
-             await _context.SaveChangesAsync(); // Guardamos el cambio de estado
+            await _context.SaveChangesAsync();
             await transaction.CommitAsync();
+
             try
             {
                 var connectionString = _context.Database.GetConnectionString();
-
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    await connection.OpenAsync();
-
-                    using (var command = new SqlCommand("PA_RECEPCIONES_Y_DBMAIL", connection))
-                    {
-                        command.CommandType = CommandType.StoredProcedure;
-
-                        
-
-                        command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = albaran });
-                        command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
-                        command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
-                        command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
-
-
-                        var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                        var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
-                        command.Parameters.Add(retCodeParam);
-                        command.Parameters.Add(mensajeParam);
-
-                        await command.ExecuteNonQueryAsync();
-
-                        int retCode = (int)retCodeParam.Value;
-                        Console.WriteLine($"[DEBUG] RETCODE recibido: {retCode}");
-
-                        if (retCode != 0)
-                        {
-                            Console.WriteLine($"[ERROR] PA_ENVIAR_DBMAIL falló con RETCODE: {retCode}");
-                        }
-                        else
-                        {
-                            Console.WriteLine("[INFO] PA_ENVIAR_DBMAIL ejecutado correctamente (RETCODE: 0).");
-                        }
-                    }
-                }
-            }
-            catch (Microsoft.Data.SqlClient.SqlException sqlEx)
-            {
-                Console.WriteLine("");
-                Console.WriteLine("=== [C# ERROR DETALLADO SQL - PA_ENVIAR_DBMAIL] ===");
-                Console.WriteLine($"Mensaje: {sqlEx.Message}");
-                Console.WriteLine($"Número de Error SQL: {sqlEx.Number}");
-                Console.WriteLine($"Procedimiento: {sqlEx.Procedure}");
-                Console.WriteLine($"Línea: {sqlEx.LineNumber}");
-                Console.WriteLine("StackTrace (parcial):");
-                Console.WriteLine(sqlEx.StackTrace.Substring(0, Math.Min(500, sqlEx.StackTrace.Length)));
-                Console.WriteLine("=== [FIN ERROR SQL] ===");
-                Console.WriteLine("");
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+                using var command = new SqlCommand("PA_RECEPCIONES_Y_DBMAIL", connection);
+                command.CommandType = CommandType.StoredProcedure;
+                command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = albaran });
+                command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
+                command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
+                command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
+                var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
+                command.Parameters.Add(retCodeParam);
+                command.Parameters.Add(mensajeParam);
+                await command.ExecuteNonQueryAsync();
             }
             catch (Exception ex)
             {
-                Console.WriteLine("");
-                Console.WriteLine("=== [C# ERROR GENERAL - PA_ENVIAR_DBMAIL] ===");
-                Console.WriteLine($"Mensaje: {ex.Message}");
-                Console.WriteLine("StackTrace (parcial):");
-                Console.WriteLine(ex.StackTrace.Substring(0, Math.Min(500, ex.StackTrace.Length)));
-                Console.WriteLine("=== [FIN ERROR GENERAL] ===");
-                Console.WriteLine("");
+                Console.WriteLine($"[ERROR EMAIL] {ex.Message}");
             }
 
-            // Cierra el try principal aquí
             return NoContent();
         }
         catch (Exception ex)
@@ -419,47 +381,34 @@ public class RecepcionesLinController : ControllerBase
             Console.WriteLine($"Error en ConfirmarIcp: {ex}");
             return StatusCode(500, "Error interno al confirmar la recepción en ICP.");
         }
-
     }
+
     [HttpPost("asignar-stock/{peticion}")]
     public async Task<IActionResult> AsignarStock(int peticion)
     {
         try
         {
             var connectionString = _context.Database.GetConnectionString();
-
-            using (var connection = new SqlConnection(connectionString))
+            using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            using var command = new SqlCommand("PA_ASIGNAR_STOCK", connection);
+            command.CommandType = CommandType.StoredProcedure;
+            command.Parameters.Add(new SqlParameter("@PETICION", SqlDbType.Int) { Value = peticion });
+            command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
+            command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
+            command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
+            var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
+            var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
+            command.Parameters.Add(retCodeParam);
+            command.Parameters.Add(mensajeParam);
+            await command.ExecuteNonQueryAsync();
+            int retCode = (int)retCodeParam.Value;
+            string mensaje = mensajeParam.Value as string ?? "";
+            if (retCode != 0)
             {
-                await connection.OpenAsync();
-
-                using (var command = new SqlCommand("PA_ASIGNAR_STOCK", connection))
-                {
-                    command.CommandType = CommandType.StoredProcedure;
-
-                    command.Parameters.Add(new SqlParameter("@PETICION", SqlDbType.Int) { Value = peticion });
-                    command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 }); 
-                    command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = ""});
-                    command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
-
-                    var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                    var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
-
-                    command.Parameters.Add(retCodeParam);
-                    command.Parameters.Add(mensajeParam);
-
-                    await command.ExecuteNonQueryAsync();
-
-                    int retCode = (int)retCodeParam.Value;
-                    string mensaje = mensajeParam.Value as string ?? "";
-
-                    if (retCode != 0)
-                    {
-                        return BadRequest(new { Message = mensaje });
-                    }
-
-                    return Ok(new { Message = mensaje });
-                }
+                return BadRequest(new { Message = mensaje });
             }
+            return Ok(new { Message = mensaje });
         }
         catch (Exception ex)
         {

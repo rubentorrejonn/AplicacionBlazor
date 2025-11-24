@@ -83,6 +83,11 @@ else
     {
 
         referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
+        if (referencias != null)
+        {
+            referencias = referencias.OrderBy(r => r.FCreacion).ToArray();
+        }
+
         AplicarFiltro();
     }
 
@@ -116,6 +121,7 @@ else
             referenciasFiltradas = referencias
                 .Where(r => r.Referencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase) ||
                             r.DesReferencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(r => r.FCreacion)
                 .ToArray();
         }
     }
