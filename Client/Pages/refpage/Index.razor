@@ -35,7 +35,22 @@ else
                         <p class="card-text">
                             <strong>Descripción:</strong> @refe.DesReferencia<br />
                             <strong>Precio:</strong> @refe.Precio.ToString("C")<br />
-                            <strong>¿Tiene Número de Serie?:</strong> @(refe.NSerie == true ? "Sí" : "No")<br />
+
+                            <strong>¿Tiene Número de Serie?: </strong>
+                            @if (refe.NSerie == true)
+                            {
+                                <span class="text-success" title="Sí tiene número de serie">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-danger" title="No tiene número de serie">
+                                    <i class="bi bi-x-circle-fill"></i>
+                                </span>
+                            }
+                            <br />
+
                             @if (refe.NSerie == true)
                             {
                                 <span><strong>Longitud:</strong> @refe.LongNSerie</span>
@@ -78,7 +93,7 @@ else
 
         await Http.DeleteAsync($"api/Referencias/{referencia}");
         referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
-        AplicarFiltro(); 
+        AplicarFiltro();
         StateHasChanged();
     }
 
