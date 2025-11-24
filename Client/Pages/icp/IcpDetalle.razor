@@ -6,22 +6,6 @@
 
 <h3>Detallar Albarán @Albaran para ICP</h3>
 
-<!--
-<div class="form-group mb-3">
-    <label for="ubicacionSelect">Selecciona Ubicación</label>
-    <InputSelect @bind-Value="ubicacionSeleccionada" class="form-control">
-        <option value="" disabled selected>--Selecciona una ubicación--</option>
-        @if(ubicaciones != null)
-        {
-            @foreach (var ubi in ubicaciones)
-            {
-                <option value="@ubi.Ubicacion">@ubi.Ubicacion (@ubi.DesUbicacion)</option>
-            }   
-        }
-    </InputSelect>
-</div>
-    
--->
 
 @if (lineas == null)
 {
@@ -99,7 +83,7 @@ else
     </table>
 
     <button class="btn btn-success" @onclick="Confirmar">Confirmar y Generar Palets</button>
-    <button class="btn btn-secondary ms-2" @onclick="GoToIcp">Cancelar</button>
+    <button class="btn btn-danger ms-2" @onclick="GoToIcp">Cancelar</button>
 }
 
 @code {

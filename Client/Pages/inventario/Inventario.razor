@@ -1,0 +1,101 @@
+﻿@page "/inventario-cliente"
+@using UltimateProyect.Shared.Models
+@using UltimateProyect.Client.Services
+@inject SalidasService SalidasService
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<h3>Inventario Disponible</h3>
+
+<div class="mb-3">
+    <input @bind="filtroReferencia"
+           class="form-control"
+           placeholder="Buscar por referencia o descripción..."
+           @oninput="OnFiltroChanged" />
+</div>
+
+@if (referencias == null)
+{
+    <p>Cargando...</p>
+}
+else
+{
+    @if (!referenciasFiltradas?.Any(refe => SalidasService.StockDisponible.GetValueOrDefault(refe.Referencia, 0) > 0) ?? true)
+    {
+        <p>No hay productos con stock disponible que coincidan con el filtro.</p>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var refe in referenciasFiltradas)
+            {
+                var stock = SalidasService.StockDisponible.GetValueOrDefault(refe.Referencia, 0);
+
+                if (stock > 0)
+                {
+                    <div class="col">
+                        <div class="card h-100 shadow-sm @(stock < 10 ? "border-warning" : "border-success")">
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="card-title text-primary">@refe.Referencia</h5>
+                                <p class="card-text flex-grow-1">
+                                    <small class="text-muted">@refe.DesReferencia</small><br />
+                                </p>
+                                <div class="mt-auto">
+                                    <strong>Stock Disponible:</strong>
+                                    <span class="badge @(stock < 10 ? "bg-warning text-dark" : "bg-success")">
+                                        @stock unidades
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <a href="#" class="btn btn-outline-primary btn-sm w-100" @onclick:preventDefault>
+                                    Gestionar Pedido
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+}
+
+@code {
+    private Referencias[]? referencias;
+    private string filtroReferencia = "";
+    private Referencias[]? referenciasFiltradas;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
+
+        var stock = await Http.GetFromJsonAsync<Dictionary<string, int>>("api/Palets/stock");
+        SalidasService.ActualizarStock(stock ?? new Dictionary<string, int>());
+
+        AplicarFiltro();
+    }
+
+    private void OnFiltroChanged(ChangeEventArgs e)
+    {
+        filtroReferencia = e.Value?.ToString() ?? "";
+        AplicarFiltro();
+    }
+
+    private void AplicarFiltro()
+    {
+        if (referencias == null) return;
+
+        if (string.IsNullOrWhiteSpace(filtroReferencia))
+        {
+            referenciasFiltradas = referencias;
+        }
+        else
+        {
+            referenciasFiltradas = referencias
+                .Where(r => r.Referencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase) ||
+                            r.DesReferencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
+    }
+}

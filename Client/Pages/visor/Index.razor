@@ -3,7 +3,7 @@
 @inject HttpClient Http
 @inject AuthenticationStateProvider Authe
 
-<h3>Historial Completo de Pedidos</h3>
+<h3>Historial Completo de Pedidos (Log)</h3>
 
 @if (allLogs == null)
 {
@@ -15,31 +15,27 @@ else if (!allLogs.Any())
 }
 else
 {
-    <table class="table table-bordered border-primary">
-        <thead>
-            <tr>
-                <th>Petición</th>
-                <th>Palet</th>
-                <th>Referencia</th>
-                <th>Cantidad Quitada</th>
-                <th>Fecha</th>
-                <th>Usuario</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var log in allLogs)
-            {
-                <tr>
-                    <td>@log.Peticion</td>
-                    <td>@log.Palet</td>
-                    <td>@log.Referencia</td>
-                    <td>@log.CantidadQuitada</td>
-                    <td>@log.FechaVerificacion.ToString("g")</td>
-                    <td>@log.NombreUsuario</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        @foreach (var log in allLogs.OrderByDescending(l => l.FechaVerificacion))
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Petición #@log.Peticion</h5>
+                        <small class="text-muted">@log.FechaVerificacion.ToString("g")</small>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            <strong>Usuario:</strong> @log.NombreUsuario<br />
+                            <strong>Referencia:</strong> @log.Referencia<br />
+                            <strong>Palet:</strong> @log.Palet<br />
+                            <strong>Cantidad Retirada:</strong> <span class="badge bg-danger">@log.CantidadQuitada</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
 }
 
 @code {
@@ -47,8 +43,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-
         allLogs = await Http.GetFromJsonAsync<List<PickingLogs>>("api/icp/log");
 
     }
+
 }

@@ -8,71 +8,78 @@
 
 <div class="mb-3">
     <input @bind="filtroAlbaran"
-    class="form-control"
-    placeholder="Buscar por albaran..."
-    @oninput="OnFiltroChanged" />
+           class="form-control"
+           placeholder="Buscar por albarán..."
+           @oninput="OnFiltroChanged" />
 </div>
+
 <a href="/recepciones/create" class="btn btn-success mb-3">Crear Nueva Recepción</a>
 
 @if (cabeceras == null)
 {
     <p>Cargando...</p>
 }
-else if (cabeceras.Length == 0)
+else if (AlbaranesFiltrados.Length == 0)
 {
     <p>No hay recepciones creadas.</p>
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Albarán</th>
-                <th>Proveedor</th>
-                <th>Estado</th>
-                <th>Fecha Creación</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var cab in AlbaranesFiltrados)
-            {
-                bool bloqueado = cab.Estado >= 2;
-                bool bloquearEdit = cab.Estado != 2;
-                bool bloquearICP = cab.Estado == 3 || cab.Estado == 4 || cab.Estado == 0;
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        @foreach (var cab in AlbaranesFiltrados)
+        {
+            bool bloqueado = cab.Estado >= 2;
+            bool bloquearEdit = cab.Estado != 2;
+            bool bloquearICP = cab.Estado == 3 || cab.Estado == 4 || cab.Estado == 0;
 
-                <tr>
-                    <td>@cab.Albaran</td>
-                    <td>@cab.Proveedor</td>
-                    <td style="color:chocolate">@cab.Estado - @cab.DesEstado</td>
-                    <td>@cab.FCreacion.ToShortDateString()</td>
-                    <td>
-
-                        <a class="btn btn-sm btn-primary @(bloquearEdit ? "disabled" : "")"
-                        href="/recepciones/edit/@cab.Albaran">Editar</a>
-
-                        <button class="btn btn-sm btn-secondary ms-1"
-                        @onclick="() => Recepcionar(cab)"
-                        disabled="@(bloqueado)">
-                            Recepcionar
-                        </button>
-
-                        <button class="btn btn-sm btn-danger ms-1"
-                        @onclick="() => Eliminar(cab.Albaran)"
-                        disabled="@(bloqueado)">
-                            Eliminar
-                        </button>
-
-                        <button class="btn btn-sm btn-warning ms-1"
-                        @onclick="() => EnviarAICP(cab)"
-                        disabled="@(bloquearICP)">
-                            Enviar a ICP
-                        </button>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+            <div class="col">
+                <div class="card h-100 shadow-sm border-1">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Albarán # @cab.Albaran</h5>
+                        <span class="badge @GetEstadoBadgeClass(cab.Estado)">
+                            @cab.Estado - @cab.DesEstado
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text"><strong>Proveedor:</strong> @cab.Proveedor</p>
+                        <p class="card-text"><strong>Fecha Creación:</strong> @cab.FCreacion.ToShortDateString()</p>
+                    </div>
+                    <div class="card-footer d-flex flex-wrap gap-2">
+                        @if (cab.Estado < 2)
+                        {
+                            <button class="btn btn-sm btn-outline-secondary flex-fill"
+                                    @onclick="() => Recepcionar(cab)"
+                                    disabled="@bloqueado">
+                                <i class="bi bi-box-seam me-1"></i>Recepcionar
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger flex-fill"
+                                    @onclick="() => Eliminar(cab.Albaran)"
+                                    disabled="@bloqueado">
+                                <i class="bi bi-trash me-1"></i>Eliminar
+                            </button>
+                        }
+                        else if (cab.Estado == 2)
+                        {
+                            <a class="btn btn-sm btn-outline-primary flex-fill @(bloquearEdit ? "disabled" : "")"
+                               href="/recepciones/edit/@cab.Albaran">
+                                <i class="bi bi-pencil me-1"></i>Editar
+                            </a>
+                            <button class="btn btn-sm btn-outline-warning flex-fill"
+                                    @onclick="() => EnviarAICP(cab)"
+                                    disabled="@bloquearICP">
+                                <i class="bi bi-send me-1"></i>Enviar a ICP
+                            </button>
+                        }
+                        else if (cab.Estado > 3)
+                        {
+                            <!-- Estado final, no hay acciones -->
+                            <span class="text-muted fst-italic w-100 text-center">Recepción completada</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
 }
 
 @code {
@@ -90,8 +97,8 @@ else
     {
         filtroAlbaran = e.Value?.ToString() ?? "";
         AplicarFiltro();
-
     }
+
     private void AplicarFiltro()
     {
         if (cabeceras is null) return;
@@ -110,26 +117,15 @@ else
 
     private void Recepcionar(RecepcionesCab cab)
     {
-        
         if (cab.Estado != 1)
         {
             cab.Estado = 1;
             cab.DesEstado = "SinLiberar";
-            // Actualizar en el servidor
             _ = Http.PutAsJsonAsync($"api/RecepcionesCab/{cab.Albaran}", cab);
         }
-
         Nav.NavigateTo($"/recepcioneslin?albaran={cab.Albaran}");
     }
-    private async Task EliminarCabecera(int albaran)
-    {
-        var confirm = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Eliminar el albarán {albaran}?");
-        if (!confirm) return;
 
-        await Http.DeleteAsync($"api/RecepcionesCab/{albaran}");
-        cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
-        StateHasChanged();
-    }
     private async Task Eliminar(int albaran)
     {
         var confirm = await JSRuntime.InvokeAsync<bool>("confirm", $"¿Eliminar la recepción {albaran}?");
@@ -137,16 +133,31 @@ else
 
         await Http.DeleteAsync($"api/RecepcionesCab/{albaran}");
         cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+        StateHasChanged();
     }
 
     private async Task EnviarAICP(RecepcionesCab cab)
     {
         cab.Estado = 3;
         cab.DesEstado = "Enviado";
-        
+
         await Http.PutAsJsonAsync($"api/RecepcionesCab/{cab.Albaran}", cab);
 
         // Refrescar la lista
         cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+        StateHasChanged();
+    }
+
+    private string GetEstadoBadgeClass(int estado)
+    {
+        return estado switch
+        {
+            0 => "bg-dark",
+            1 => "bg-secondary",
+            2 => "bg-info",
+            3 => "bg-warning",
+            4 => "bg-success",
+            _ => "bg-light text-dark"
+        };
     }
 }

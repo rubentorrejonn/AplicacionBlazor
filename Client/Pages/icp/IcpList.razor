@@ -7,9 +7,9 @@
 
 <div class="mb-3">
     <input @bind="filtroAlbaran"
-    class="form-control"
-    placeholder="Buscar por albaran..."
-    @oninput="OnFiltroChanged" />
+           class="form-control"
+           placeholder="Buscar por albaran..."
+           @oninput="OnFiltroChanged" />
 </div>
 
 @if (albaranes == null)
@@ -22,31 +22,29 @@ else if (!albaranes.Any())
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Albarán</th>
-                <th>Proveedor</th>
-                <th>Fecha</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var a in AlbaranesFiltrados)
-            {
-                <tr>
-                    <td>@a.Albaran</td>
-                    <td>@a.Proveedor</td>
-                    <td>@a.FCreacion.ToShortDateString()</td>
-                    <td>
-                        <a href="/icp/detalle?albaran=@a.Albaran" class="btn btn-sm btn-primary">
-                            Detallar
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        @foreach (var a in AlbaranesFiltrados)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Albarán #@a.Albaran</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            <strong>Proveedor:</strong> @a.Proveedor<br />
+                            <strong>Fecha de Creación:</strong> @a.FCreacion.ToShortDateString()<br />
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/icp/detalle?albaran=@a.Albaran" class="btn btn-sm btn-outline-primary w-100">
+                            Ver Detalles
                         </a>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
 }
 
 @code {
@@ -57,7 +55,6 @@ else
     protected override async Task OnInitializedAsync()
     {
         var todos = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
-        //Que desaparezca de la lista cuando esta "estado 4 confirmado"
         albaranes = todos?.Where(x => x.Estado == 3).ToArray();
         AplicarFiltro();
     }

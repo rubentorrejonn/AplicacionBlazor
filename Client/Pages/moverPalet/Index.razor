@@ -6,9 +6,9 @@
 
 <div class="mb-3">
     <input @bind="filtroPalets"
-    class="form-control"
-    placeholder="Buscar por referencia o descripción..."
-    @oninput="OnFiltroChanged" />
+           class="form-control"
+           placeholder="Buscar por referencia o descripción..."
+           @oninput="OnFiltroChanged" />
 </div>
 
 @if (palets == null)
@@ -21,33 +21,32 @@ else if (!palets.Any())
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Palet</th>
-                <th>Referencia</th>
-                <th>Artículo</th>
-                <th>Cantidad</th>
-                <th>Ubicación</th>
-                <th>Acción</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var palet in paletsFiltrados)
-            {
-                <tr>
-                    <td>@palet.Palet</td>
-                    <td>@palet.Referencia</td>
-                    <td>@palet.DesReferencia</td>
-                    <td>@palet.Cantidad</td>
-                    <td>@palet.Ubicacion</td>
-                    <td>
-                        <a href="/moverpalet/@palet.Palet" class="btn btn-sm btn-info">Mover</a>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    @* Reemplazamos la tabla por una cuadrícula de tarjetas (grid) *@
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        @foreach (var palet in paletsFiltrados)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="card-title mb-0">Palet: @palet.Palet</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            <strong>Referencia:</strong> @palet.Referencia<br />
+                            <strong>Artículo:</strong> @palet.DesReferencia<br />
+                            <strong>Cantidad:</strong> <span class="badge bg-primary">@palet.Cantidad</span><br />
+                            <strong>Ubicación Actual:</strong> <span class="badge bg-success">@palet.Ubicacion</span>
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/moverpalet/@palet.Palet" class="btn btn-sm btn-outline-info w-100">
+                            Mover Palet
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
 }
 
 @code {

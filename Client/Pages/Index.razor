@@ -10,7 +10,7 @@
         @if (authState != null && authState.User.Identity.IsAuthenticated)
         {
             <p class="lead">
-                Hola, @authState.User.Identity.Name. Utiliza el menú lateral para gestionar tus tareas.
+                Hola, @authState.User.Identity.Name. Utiliza el menú superior para gestionar tus tareas.
             </p>
         }
         else
@@ -29,7 +29,7 @@
                 <div class="card shadow-sm">
                     <div class="card-body">
                         <h5 class="card-title">Gestión de Palets (ICP)</h5>
-                        <p class="card-text">Consulta y actualiza el estado de los palets en el almacén.</p>
+                        <p class="card-text">Consulta y ubica los palets en el almacén.</p>
                         <a href="/moverpalets" class="btn btn-outline-primary">Ver Palets</a>
                     </div>
                 </div>
@@ -39,7 +39,7 @@
                     <div class="card-body">
                         <h5 class="card-title">Órdenes de Salida (ICP)</h5>
                         <p class="card-text">Gestiona las peticiones de picking y albaranes de salida.</p>
-                        <a href="/icp" class="btn btn-outline-primary">Ver Órdenes</a>
+                        <a href="/icp/picking" class="btn btn-outline-primary">Ver Órdenes</a>
                     </div>
                 </div>
             </div>
@@ -52,7 +52,7 @@
                 <div class="card shadow-sm">
                     <div class="card-body">
                         <h5 class="card-title">Mis Pedidos</h5>
-                        <p class="card-text">Consulta el estado de tus pedidos y envíos recientes.</p>
+                        <p class="card-text">Consulta tus pedidos enviados por ICP.</p>
                         <a href="/log" class="btn btn-outline-primary">Ver Pedidos</a>
                     </div>
                 </div>

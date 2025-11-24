@@ -4,13 +4,13 @@
 @inject NavigationManager Nav
 
 
-<h3>Listado de Peticiones</h3>
+<h3>Listado de Peticiones Pendientes de Verificación</h3>
 
 <div class="mb-3">
     <input @bind="filtroPeticion"
-    class="form-control"
-    placeholder="Busca por petición..."
-    @oninput="OnFiltroChanged"/>
+           class="form-control"
+           placeholder="Busca por petición..."
+           @oninput="OnFiltroChanged" />
 </div>
 
 @if (salidas == null)
@@ -23,27 +23,29 @@ else if (!salidas.Any())
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Petición</th>
-                <th>Cliente</th>
-                <th>Acción</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var salida in peticionesFiltradas)
-            {
-                <tr>
-                    <td>@salida.Peticion</td>
-                    <td>@salida.NombreCliente</td>
-                    <td>
-                        <a href="/icp/verificar/@salida.Peticion" class="btn btn-primary btn-sm">Verificar</a>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    @* Reemplazamos la tabla por una cuadrícula de tarjetas (grid) *@
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        @foreach (var salida in peticionesFiltradas)
+        {
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Petición #@salida.Peticion</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">
+                            <strong>Cliente:</strong> @salida.NombreCliente
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/icp/verificar/@salida.Peticion" class="btn btn-outline-primary btn-sm w-100">
+                            Verificar Pedido
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
 }
 
 @code {
@@ -67,7 +69,7 @@ else
     {
         if (salidas == null) return;
 
-        if(string.IsNullOrWhiteSpace(filtroPeticion))
+        if (string.IsNullOrWhiteSpace(filtroPeticion))
         {
             peticionesFiltradas = salidas;
         }

@@ -3,15 +3,36 @@
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
-
+.nav-link {
+    color: #333;
+}
+.nav-item {
+    padding-top: 0rem;
+    padding-bottom: 0rem;
+}
+.nav-item .active {
+    color: #007bff;
+    background-color: transparent;
+    border-color: transparent;
+}
 h1:focus {
     outline: none;
+}
+.bg-custom-grayy {
+    background-color: #808080 !important;
 }
 
 a, .btn-link {
     color: #0071c1;
 }
-
+.main {
+    width: 100%;
+    padding-top: 0;
+}
+.page {
+    display: block;
+    width: 100%;
+}
 .btn-primary {
     color: #fff;
     background-color: #1b6ec2;

@@ -8,53 +8,56 @@
 @attribute [Authorize(Policy = "Operario")]
 
 <h3>Referencias Disponibles</h3>
-
 <div class="mb-3">
     <input @bind="filtroReferencia"
            class="form-control"
            placeholder="Buscar por referencia..."
            @oninput="OnFiltroChanged" />
 </div>
+
+<a href="/refpage/create" class="btn btn-success">Crear Nueva Referencia</a>
+
+<p></p>
+
 @if (referencias == null)
 {
     <p>Cargando...</p>
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Referencia</th>
-                <th>Descripción</th>
-                <th>Precio</th>
-                <th>¿Tiene Número de Seríe?</th>
-                <th>Longitud Numero de Serie</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var refe in referenciasFiltradas)
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        @foreach (var refe in referenciasFiltradas)
         {
-                <tr>
-                    <td>@refe.Referencia</td>
-                    <td>@refe.DesReferencia</td>
-                    <td>@refe.Precio.ToString("C")</td>
-                    <td align="center">@(refe.NSerie == true ? "Sí" : "No")</td>
-                    <td align="center">@refe.LongNSerie</td>
-                    <td>
-                        <a href="/refpage/edit/@refe.Referencia" class="btn btn-sm btn-warning">Modificar</a>
-                        <button class="btn btn-sm btn-danger ms-1"
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">@refe.Referencia</h5>
+                        <p class="card-text">
+                            <strong>Descripción:</strong> @refe.DesReferencia<br />
+                            <strong>Precio:</strong> @refe.Precio.ToString("C")<br />
+                            <strong>¿Tiene Número de Serie?:</strong> @(refe.NSerie == true ? "Sí" : "No")<br />
+                            @if (refe.NSerie == true)
+                            {
+                                <span><strong>Longitud:</strong> @refe.LongNSerie</span>
+                            }
+                        </p>
+                    </div>
+                    <div class="card-footer">
+                        <a href="/refpage/edit/@refe.Referencia" class="btn btn-sm btn-outline-warning w-100 mb-1">Modificar</a>
+                        <button class="btn btn-sm btn-outline-danger w-100"
                                 @onclick="() => EliminarReferencia(refe.Referencia)">
                             Eliminar
                         </button>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+    @if (referenciasFiltradas == null || referenciasFiltradas.Length == 0)
+    {
+        <p class="mt-3">No se encontraron referencias que coincidan con el filtro.</p>
+    }
 }
-
-<a href="/refpage/create" class="btn btn-success">Crear Nueva Referencia</a>
 
 @code {
     private Referencias[]? referencias;
@@ -63,6 +66,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+
         referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
         AplicarFiltro();
     }
@@ -74,14 +78,16 @@ else
 
         await Http.DeleteAsync($"api/Referencias/{referencia}");
         referencias = await Http.GetFromJsonAsync<Referencias[]>("api/Referencias");
+        AplicarFiltro(); 
         StateHasChanged();
     }
+
     private void OnFiltroChanged(ChangeEventArgs e)
     {
         filtroReferencia = e.Value?.ToString() ?? "";
         AplicarFiltro();
-
     }
+
     private void AplicarFiltro()
     {
         if (referencias == null) return;
@@ -93,7 +99,8 @@ else
         else
         {
             referenciasFiltradas = referencias
-                .Where(r => r.Referencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase))
+                .Where(r => r.Referencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase) ||
+                            r.DesReferencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
         }
     }
