@@ -131,6 +131,16 @@ public class IcpController : ControllerBase
                     .Select(ns => ns.NSerie)
                     .ToListAsync();
 
+                var numerosSerieValidos = linea.NumerosSerie
+                    .Where(ns => !string.IsNullOrWhiteSpace(ns))
+                    .ToList();
+
+                if (numerosSerieValidos.Count != linea.Cantidad)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest($"La línea {linea.Linea} requiere {linea.Cantidad} números de serie, pero se proporcionaron {numerosSerieValidos.Count}.");
+                }
+
                 var nsInvalidos = linea.NumerosSerie
                     .Where(ns => !string.IsNullOrEmpty(ns))
                     .Except(nsDisponibles, StringComparer.OrdinalIgnoreCase)
@@ -160,14 +170,16 @@ public class IcpController : ControllerBase
                 if (usuario == null)
                     return Unauthorized("Usuario no encontrado.");
 
+
                 foreach (var palet in paletsAsignadosALinea)
                 {
+                    var cantidadARestar = Math.Min(cantidadNecesaria, palet.Cantidad);
                     var log = new PickingLogs
                     {
                         Peticion = verificacion.Peticion,
                         Palet = palet.Palet,
                         Referencia = palet.Referencia,
-                        CantidadQuitada = palet.Cantidad,
+                        CantidadQuitada = cantidadARestar,
                         FechaVerificacion = DateTime.Now,
                         IdUsuario = userIdActual,
                         NombreUsuario = usuario.UserName

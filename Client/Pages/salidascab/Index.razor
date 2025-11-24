@@ -125,6 +125,7 @@ else
             {
                 await JSRuntime.InvokeVoidAsync("alert", "Stock asignado correctamente.");
                 salidaCab = await Http.GetFromJsonAsync<VistaOrdenSalidaCab[]>("api/ordensalidacab");
+                AplicarFiltro();
                 StateHasChanged();
             }
             else
