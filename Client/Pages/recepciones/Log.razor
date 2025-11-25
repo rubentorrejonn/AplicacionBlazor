@@ -42,8 +42,8 @@ else
                                 @item.Estado - @item.DesEstado
                             </span>
                         </td>
-                        <td>@item.FCreacion.ToShortDateString()</td>
-                        <td>@(item.FConfirmacion.HasValue ? item.FConfirmacion.Value.ToShortDateString() : "NA")</td>
+                        <td>@item.FCreacion</td>
+                        <td>@(item.FConfirmacion.HasValue ? item.FConfirmacion.Value : "NA")</td>
                     </tr>
                 }
             </tbody>

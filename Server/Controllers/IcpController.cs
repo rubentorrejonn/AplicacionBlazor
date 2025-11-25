@@ -40,26 +40,45 @@ public class IcpController : ControllerBase
             .Join(_context.Referencias,
                   lin => lin.Referencia,
                   refe => refe.Referencia,
-                  (lin, refe) => new LineaVerificacionDto
-                  {
-                      Linea = lin.Linea,
-                      Referencia = lin.Referencia,
-                      DesReferencia = refe.DesReferencia,
-                      Cantidad = lin.Cantidad,
-                      RequiereNSerie = refe.NSerie,
-                      LongNSerie = refe.LongNSerie,
-                      NumerosSerieValidos = _context.NSeries_Recepciones
-                        .Where(ns => ns.Referencia == lin.Referencia && ns.Estado == 1)
-                        .Join(_context.Palets,
-                              ns => new { ns.Palet, ns.Referencia },
-                              p => new { p.Palet, p.Referencia },
-                              (ns, p) => new { ns.NSerie, p.Estado })
-                        .Where(x => x.Estado == 3)
-                        .Select(x => x.NSerie)
-                        .ToList()
-                  })
+                  (lin, refe) => new { lin, refe })
+            .Select(x => new LineaVerificacionDto
+            {
+                Linea = x.lin.Linea,
+                Referencia = x.lin.Referencia,
+                DesReferencia = x.refe.DesReferencia,
+                Cantidad = x.lin.Cantidad,
+                RequiereNSerie = x.refe.NSerie,
+                LongNSerie = x.refe.LongNSerie,
+
+                Palet = 0,
+                Ubicacion = string.Empty,
+
+                NumerosSerieValidos = _context.NSeries_Recepciones
+                    .Where(ns => ns.Referencia == x.lin.Referencia && ns.Estado == 1)
+                    .Join(_context.Palets,
+                          ns => new { ns.Palet, ns.Referencia },
+                          p => new { p.Palet, p.Referencia },
+                          (ns, p) => new { ns.NSerie, p.Estado })
+                    .Where(x => x.Estado == 3)
+                    .Select(x => x.NSerie)
+                    .ToList()
+            })
             .OrderBy(l => l.Linea)
             .ToListAsync();
+
+        foreach (var linea in lineas)
+        {
+            var paletAsociado = await _context.Palets
+                .Where(p => p.Referencia == linea.Referencia && p.Estado == 3)
+                .OrderBy(p => p.Palet)
+                .FirstOrDefaultAsync();
+
+            if (paletAsociado != null)
+            {
+                linea.Palet = paletAsociado.Palet;
+                linea.Ubicacion = paletAsociado.Ubicacion;
+            }
+        }
 
         var verificacion = new VerificacionIcpDto
         {
@@ -132,7 +151,6 @@ public class IcpController : ControllerBase
 
                 asignacionesPorLinea[linea.Linea] = paletsAsignadosALinea;
 
-                // ✅ Validación y procesamiento de NSerie solo si es necesario
                 if (linea.RequiereNSerie == true)
                 {
                     var nsDisponibles = await _context.NSeries_Recepciones
@@ -176,7 +194,6 @@ public class IcpController : ControllerBase
                 if (usuario == null)
                     return Unauthorized("Usuario no encontrado.");
 
-                // ✅ Crear logs con las cantidades reales
                 for (int i = 0; i < paletsAsignadosALinea.Count; i++)
                 {
                     var log = new PickingLogs

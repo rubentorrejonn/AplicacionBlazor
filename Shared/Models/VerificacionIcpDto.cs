@@ -12,6 +12,8 @@ public class LineaVerificacionDto
     public int Linea { get; set; }
     public string Referencia { get; set; } = null!;
     public string DesReferencia { get; set; } = null!;
+    public int Palet { get; set; }
+    public string Ubicacion { get; set; }
     public int Cantidad { get; set; }
     public bool? RequiereNSerie { get; set; }
     public int? LongNSerie { get; set; }
