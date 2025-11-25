@@ -54,13 +54,8 @@ public class IcpController : ControllerBase
                 Ubicacion = string.Empty,
 
                 NumerosSerieValidos = _context.NSeries_Recepciones
-                    .Where(ns => ns.Referencia == x.lin.Referencia && ns.Estado == 1)
-                    .Join(_context.Palets,
-                          ns => new { ns.Palet, ns.Referencia },
-                          p => new { p.Palet, p.Referencia },
-                          (ns, p) => new { ns.NSerie, p.Estado })
-                    .Where(x => x.Estado == 3)
-                    .Select(x => x.NSerie)
+                    .Where(ns => ns.Referencia == x.lin.Referencia && ns.Estado == 1) // ✅ Solo filtra por Estado = 1
+                    .Select(ns => ns.NSerie)
                     .ToList()
             })
             .OrderBy(l => l.Linea)
