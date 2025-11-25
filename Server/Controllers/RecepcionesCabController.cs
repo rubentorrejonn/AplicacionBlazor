@@ -22,6 +22,13 @@ public class RecepcionesCabController : ControllerBase
         return await _context.Recepciones_Cab.ToListAsync();
     }
 
+    [HttpGet("log")]
+    public async Task<ActionResult<List<VistaOrdenSalidaCab>>> GetOrdenSalidaCab()
+    {
+        var cabeceras = await _context.V_RECEPCIONES_LOG.ToListAsync();
+        return Ok(cabeceras);
+    }
+
     [HttpGet("{id}")]
     public async Task<ActionResult<RecepcionesCab>> GetRecepcionesCab(int id)
     {

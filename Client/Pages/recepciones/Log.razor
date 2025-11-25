@@ -1,0 +1,100 @@
+﻿@page "/recepciones/log"
+@using UltimateProyect.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager Nav
+
+<h3>Log de Recepciones</h3>
+
+<div class="mb-3">
+    <input type="text" class="form-control" placeholder="Buscar por Albarán, Proveedor o Estado..."
+           @bind="searchString" @bind:event="oninput" />
+</div>
+
+@if (logRecepciones == null)
+{
+    <p>Cargando...</p>
+}
+else if (!FilteredItems.Any())
+{
+    <p>No hay recepciones que coincidan con la búsqueda, o la lista está vacía.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Albarán</th>
+                    <th>Proveedor</th>
+                    <th>Estado</th>
+                    <th>Fecha Creación</th>
+                    <th>Fecha Confirmación</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in FilteredItems)
+                {
+                    <tr>
+                        <td>@item.Albaran</td>
+                        <td>@item.Proveedor</td>
+                        <td>
+                            <span class="badge @GetEstadoBadgeClass(item.Estado)">
+                                @item.Estado - @item.DesEstado
+                            </span>
+                        </td>
+                        <td>@item.FCreacion.ToShortDateString()</td>
+                        <td>@(item.FConfirmacion.HasValue ? item.FConfirmacion.Value.ToShortDateString() : "NA")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private VistaRecepcionesLog[]? logRecepciones;
+    private string searchString = string.Empty;
+
+    private IEnumerable<VistaRecepcionesLog> FilteredItems => logRecepciones?.Where(FilterFunc) ?? Array.Empty<VistaRecepcionesLog>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var allCabeceras = await Http.GetFromJsonAsync<VistaRecepcionesLog[]>("api/RecepcionesCab/log");
+
+        if (allCabeceras != null)
+        {
+            logRecepciones = allCabeceras;
+        }
+    }
+
+    private string GetEstadoBadgeClass(int estado)
+    {
+        return estado switch
+        {
+            0 => "bg-dark",
+            1 => "bg-secondary",
+            2 => "bg-info",
+            3 => "bg-warning",
+            4 => "bg-success",
+            _ => "bg-light text-dark"
+        };
+    }
+
+    private bool FilterFunc(VistaRecepcionesLog item)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+
+        if (item.Proveedor.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (item.Albaran.ToString().Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (item.DesEstado.ToString().Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+
+}

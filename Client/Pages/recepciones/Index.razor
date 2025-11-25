@@ -9,7 +9,7 @@
 <div class="mb-3">
     <input @bind="filtroAlbaran"
     class="form-control"
-    placeholder="Buscar por albarán..."
+    placeholder="Buscar por albarán o estado..."
     @oninput="OnFiltroChanged" />
 </div>
 
@@ -42,7 +42,7 @@ else
                     </div>
                     <div class="card-body">
                         <p class="card-text"><strong>Proveedor:</strong> @cab.Proveedor</p>
-                        <p class="card-text"><strong>Fecha Creación:</strong> @cab.FCreacion.ToShortDateString()</p>
+                        <p class="card-text"><strong>Fecha de Creación:</strong> @cab.FCreacion</p>
                     </div>
                     <div class="card-footer d-flex flex-wrap gap-2">
                         @if (cab.Estado < 2)
@@ -72,7 +72,6 @@ else
                         }
                         else if (cab.Estado > 3)
                         {
-                            <!-- Estado final, no hay acciones -->
                             <span class="text-muted fst-italic w-100 text-center">Recepción completada</span>
                         }
                     </div>
@@ -110,7 +109,8 @@ else
         else
         {
             AlbaranesFiltrados = cabeceras
-                .Where(r => r.Albaran.ToString().Contains(filtroAlbaran, StringComparison.OrdinalIgnoreCase))
+                .Where(r => r.Albaran.ToString().Contains(filtroAlbaran, StringComparison.OrdinalIgnoreCase) ||
+                        r.DesEstado.ToString().Contains(filtroAlbaran, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
         }
     }

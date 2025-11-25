@@ -28,8 +28,11 @@ else
         {
             <div class="col">
                 <div class="card h-100 shadow-sm">
-                    <div class="card-header">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Pedido #@scab.Peticion</h5>
+                        <span class="badge @(scab.Estado == 1 ? "bg-info" : scab.Estado == 3 ? "bg-success" : "bg-secondary")">
+                            @scab.Estado - @scab.DesEstado
+                        </span>
                     </div>
                     <div class="card-body">
                         <p class="card-text">
@@ -40,9 +43,6 @@ else
                             <strong>Teléfono:</strong> @scab.Telefono<br />
                             <strong>Fecha:</strong> @scab.FCreacion.ToShortDateString()<br />
                         </p>
-                        <span class="badge @(scab.Estado == 1 ? "bg-info" : scab.Estado == 3 ? "bg-success" : "bg-secondary")">
-                            Estado: @scab.DesEstado
-                        </span>
                     </div>
                     <div class="card-footer d-flex flex-column">
                         @if (scab.Estado < 1)

@@ -22,6 +22,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<NSeriesSeguimiento> NSeries_Seguimiento { get; set; }
     public DbSet<VistaOrdenSalidaCab> V_OSC_ESTADO_DESCRIPCION { get; set; }
     public DbSet<VistaPaletsReservados> V_MOVIMIENTO_PALETS { get; set; }
+    public DbSet<VistaRecepcionesLog> V_RECEPCIONES_LOG { get; set; }
     public DbSet<Movimientos> Movimientos { get; set; }
     public DbSet<Usuarios> Usuarios { get; set; }
 
@@ -63,6 +64,11 @@ public class ApplicationDbContext : DbContext
         {
             entity.HasNoKey();
             entity.ToView("V_OSC_ESTADO_DESCRIPCION");
+        });
+        modelBuilder.Entity<VistaRecepcionesLog>(entity =>
+        {
+            entity.HasNoKey();
+            entity.ToView("V_RECEPCIONES_LOG");
         });
         modelBuilder.Entity<VistaPaletsReservados>(entity =>
         {
