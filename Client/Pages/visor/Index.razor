@@ -5,18 +5,22 @@
 
 <h3>Historial Completo de Pedidos (Log)</h3>
 
+<div class="mb-3">
+    <input @bind="filtroTexto" @bind:event="oninput" class="form-control" placeholder="Filtrar por petición o referencia..." />
+</div>
+
 @if (allLogs == null)
 {
     <p>Cargando...</p>
 }
-else if (!allLogs.Any())
+else if (!logsFiltrados.Any())
 {
-    <p>No hay registros de pedidos.</p>
+    <p>No hay registros que coincidan con el filtro.</p>
 }
 else
 {
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        @foreach (var log in allLogs.OrderByDescending(l => l.FechaVerificacion))
+        @foreach (var log in logsFiltrados)
         {
             <div class="col">
                 <div class="card h-100 shadow-sm">
@@ -28,7 +32,7 @@ else
                         <p class="card-text">
                             <strong>Usuario: </strong><span class="badge bg-info">@log.NombreUsuario</span><br />
                             <strong>Referencia:</strong> @log.Referencia<br />
-                            <strong>Palet Retirada:</strong> @log.PaletRetirada<br />
+                            <strong>Palet Retirado:</strong> @log.PaletRetirada<br />
                             <strong>Palet Generado:</strong> @log.Palet<br />
                             <strong>Cantidad:</strong> <span class="badge bg-danger">@log.CantidadQuitada</span>
                         </p>
@@ -41,11 +45,20 @@ else
 
 @code {
     private List<PickingLogs>? allLogs;
+    private string filtroTexto = "";
+
+    private List<PickingLogs> logsFiltrados => string.IsNullOrWhiteSpace(filtroTexto)
+        ? allLogs?.OrderByDescending(l => l.FechaVerificacion).ToList() ?? new()
+        : allLogs?.Where(l =>
+            (l.Peticion.ToString().Contains(filtroTexto, StringComparison.OrdinalIgnoreCase)) ||
+            (l.Referencia != null && l.Referencia.Contains(filtroTexto, StringComparison.OrdinalIgnoreCase))
+        ).OrderByDescending(l => l.FechaVerificacion).ToList() ?? new();
 
     protected override async Task OnInitializedAsync()
     {
-        allLogs = await Http.GetFromJsonAsync<List<PickingLogs>>("api/icp/log");
 
+        allLogs = await Http.GetFromJsonAsync<List<PickingLogs>>("api/icp/log");
     }
+
 
 }
