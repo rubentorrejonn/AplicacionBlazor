@@ -18,7 +18,7 @@ namespace UltimateProyect.Shared.Models
         [Column("CANTIDAD")]
         public int Cantidad { get; set; }
         [Column("REFERENCIA")]
-        public int Referencia { get; set; }
+        public string Referencia { get; set; }
         [Column("UBICACION_ORIGEN")]
         public string UbicacionOrigen { get; set; }
         [Column("UBICACION_DESTINO")]

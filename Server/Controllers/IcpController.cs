@@ -49,12 +49,10 @@ public class IcpController : ControllerBase
                 Cantidad = x.lin.Cantidad,
                 RequiereNSerie = x.refe.NSerie,
                 LongNSerie = x.refe.LongNSerie,
-
                 Palet = 0,
                 Ubicacion = string.Empty,
-
                 NumerosSerieValidos = _context.NSeries_Recepciones
-                    .Where(ns => ns.Referencia == x.lin.Referencia && ns.Estado == 1) // ✅ Solo filtra por Estado = 1
+                    .Where(ns => ns.Referencia == x.lin.Referencia && ns.Estado == 1)
                     .Select(ns => ns.NSerie)
                     .ToList()
             })
@@ -106,18 +104,61 @@ public class IcpController : ControllerBase
 
         try
         {
-            var asignacionesPorLinea = new Dictionary<int, List<Palets>>();
+            foreach (var linea in verificacion.Lineas)
+            {
+                var paletsDisponibles = await _context.Palets
+                    .Where(p => p.Referencia == linea.Referencia && p.Estado == 3)
+                    .OrderBy(p => p.Palet)
+                    .ToListAsync();
+
+                var cantidadNecesaria = linea.Cantidad;
+                foreach (var palet in paletsDisponibles)
+                {
+                    if (cantidadNecesaria <= 0) break;
+                    cantidadNecesaria -= Math.Min(cantidadNecesaria, palet.Cantidad);
+                }
+
+                if (cantidadNecesaria > 0)
+                {
+                    return BadRequest($"No hay suficiente stock para la referencia {linea.Referencia}.");
+                }
+
+                if (linea.RequiereNSerie == true)
+                {
+                    var numerosSerieValidos = linea.NumerosSerie
+                        .Where(ns => !string.IsNullOrWhiteSpace(ns))
+                        .ToList();
+
+                    if (numerosSerieValidos.Count != linea.Cantidad)
+                    {
+                        return BadRequest($"La línea {linea.Linea} requiere {linea.Cantidad} números de serie, pero se proporcionaron {numerosSerieValidos.Count}.");
+                    }
+
+                    var nsDisponiblesSet = new HashSet<string>(
+                        await _context.NSeries_Recepciones
+                            .Where(ns => ns.Referencia == linea.Referencia && ns.Estado == 1)
+                            .Select(ns => ns.NSerie)
+                            .ToListAsync(),
+                        StringComparer.OrdinalIgnoreCase
+                    );
+
+                    var todosValidos = numerosSerieValidos.All(ns => nsDisponiblesSet.Contains(ns));
+                    if (!todosValidos)
+                    {
+                        return BadRequest("Números de serie inválidos.");
+                    }
+                }
+            }
 
             foreach (var linea in verificacion.Lineas)
             {
-                var cantidadNecesaria = linea.Cantidad;
                 var paletsDisponibles = await _context.Palets
                     .Where(p => p.Referencia == linea.Referencia && p.Estado == 3)
                     .OrderBy(p => p.Palet)
                     .ToListAsync();
 
                 var paletsAsignadosALinea = new List<Palets>();
-                var cantidadesPorPalet = new List<int>();
+                var cantidadNecesaria = linea.Cantidad;
 
                 foreach (var palet in paletsDisponibles)
                 {
@@ -128,7 +169,6 @@ public class IcpController : ControllerBase
                     cantidadNecesaria -= cantidadARestar;
 
                     paletsAsignadosALinea.Add(palet);
-                    cantidadesPorPalet.Add(cantidadARestar);
 
                     if (palet.Cantidad == 0)
                         palet.Estado = 5;
@@ -138,38 +178,8 @@ public class IcpController : ControllerBase
                     _context.Palets.Update(palet);
                 }
 
-                if (cantidadNecesaria > 0)
-                {
-                    await transaction.RollbackAsync();
-                    return BadRequest($"No hay suficiente stock para la referencia {linea.Referencia}.");
-                }
-
-                asignacionesPorLinea[linea.Linea] = paletsAsignadosALinea;
-
                 if (linea.RequiereNSerie == true)
                 {
-                    var nsDisponibles = await _context.NSeries_Recepciones
-                        .Where(ns => ns.Referencia == linea.Referencia && ns.Estado == 1)
-                        .Select(ns => ns.NSerie)
-                        .ToListAsync();
-
-                    var numerosSerieValidos = linea.NumerosSerie
-                        .Where(ns => !string.IsNullOrWhiteSpace(ns))
-                        .ToList();
-
-                    if (numerosSerieValidos.Count != linea.Cantidad)
-                    {
-                        await transaction.RollbackAsync();
-                        return BadRequest($"La línea {linea.Linea} requiere {linea.Cantidad} números de serie, pero se proporcionaron {numerosSerieValidos.Count}.");
-                    }
-
-                    var nsInvalidos = numerosSerieValidos.Except(nsDisponibles, StringComparer.OrdinalIgnoreCase).ToList();
-                    if (nsInvalidos.Any())
-                    {
-                        await transaction.RollbackAsync();
-                        return BadRequest($"Números de serie inválidos: {string.Join(", ", nsInvalidos)}");
-                    }
-
                     foreach (var nserie in linea.NumerosSerie)
                     {
                         if (!string.IsNullOrEmpty(nserie))
@@ -185,75 +195,62 @@ public class IcpController : ControllerBase
                     }
                 }
 
-                var usuario = await _context.Usuarios.FindAsync(userIdActual);
-                if (usuario == null)
-                    return Unauthorized("Usuario no encontrado.");
+                var paletOriginal = await _context.Palets
+                    .Where(p => p.Referencia == linea.Referencia && p.Estado == 3)
+                    .OrderBy(p => p.Palet)
+                    .FirstOrDefaultAsync();
 
-                for (int i = 0; i < paletsAsignadosALinea.Count; i++)
+                if (paletOriginal == null)
                 {
-                    var log = new PickingLogs
-                    {
-                        Peticion = verificacion.Peticion,
-                        Palet = paletsAsignadosALinea[i].Palet,
-                        Referencia = paletsAsignadosALinea[i].Referencia,
-                        CantidadQuitada = cantidadesPorPalet[i],
-                        FechaVerificacion = DateTime.Now,
-                        IdUsuario = userIdActual,
-                        NombreUsuario = usuario.UserName
-                    };
-                    _context.PickingLog.Add(log);
+                    await transaction.RollbackAsync();
+                    return BadRequest($"No hay palet disponible para la referencia {linea.Referencia}.");
+                }
+
+                var nuevoPalet = new Palets
+                {
+                    Referencia = linea.Referencia,
+                    Cantidad = linea.Cantidad,
+                    Albaran = paletOriginal.Albaran,
+                    Ubicacion = paletOriginal.Ubicacion,
+                    Estado = 4,
+                    FInsert = DateTime.Now
+                };
+
+                _context.Palets.Add(nuevoPalet);
+                await _context.SaveChangesAsync();
+
+                var usuario = await _context.Usuarios.FindAsync(userIdActual);
+                var log = new PickingLogs
+                {
+                    Peticion = verificacion.Peticion,
+                    Palet = nuevoPalet.Palet,
+                    PaletRetirada = paletOriginal.Palet,
+                    Referencia = linea.Referencia,
+                    CantidadQuitada = linea.Cantidad,
+                    FechaVerificacion = DateTime.Now,
+                    IdUsuario = userIdActual,
+                    NombreUsuario = usuario?.UserName ?? ""
+                };
+
+                _context.PickingLog.Add(log);
+
+                var movimiento = await _context.Movimientos
+                    .FirstOrDefaultAsync(m =>
+                        m.Peticion == verificacion.Peticion &&
+                        m.Referencia == linea.Referencia &&
+                        m.LinPeticion == linea.Linea);
+
+                if (movimiento != null)
+                {
+                    movimiento.Palet = nuevoPalet.Palet;
+                    movimiento.UbicacionDestino = "TRANSPORTE";
+                    movimiento.Realizado = 1;
+                    _context.Movimientos.Update(movimiento);
                 }
             }
 
             cabecera.Estado = 3;
             _context.Orden_Salida_Cab.Update(cabecera);
-
-            // ✅ Ejecutar PA solo para líneas que requieren NSerie
-            foreach (var linea in verificacion.Lineas)
-            {
-                if (linea.RequiereNSerie == true)
-                {
-                    var paletsDeEstaLinea = asignacionesPorLinea.GetValueOrDefault(linea.Linea, new List<Palets>());
-                    if (!paletsDeEstaLinea.Any()) continue;
-
-                    var paletAsignado = paletsDeEstaLinea.First();
-
-                    foreach (var nserie in linea.NumerosSerie)
-                    {
-                        if (string.IsNullOrEmpty(nserie)) continue;
-
-                        var connectionString = _context.Database.GetConnectionString();
-                        using var connection = new SqlConnection(connectionString);
-                        await connection.OpenAsync();
-
-                        using var command = new SqlCommand("PA_NSERIES_SEGUIMIENTO", connection);
-                        command.CommandType = CommandType.StoredProcedure;
-
-                        command.Parameters.Add(new SqlParameter("@NSERIE", SqlDbType.VarChar, 30) { Value = nserie });
-                        command.Parameters.Add(new SqlParameter("@PALET", SqlDbType.Int) { Value = paletAsignado.Palet });
-                        command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = verificacion.Peticion });
-                        command.Parameters.Add(new SqlParameter("@REFERENCIA", SqlDbType.VarChar, 30) { Value = linea.Referencia });
-                        command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
-                        command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
-                        command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
-
-                        var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                        var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
-                        command.Parameters.Add(retCodeParam);
-                        command.Parameters.Add(mensajeParam);
-
-                        await command.ExecuteNonQueryAsync();
-
-                        int retCode = retCodeParam.Value is int r ? r : -1;
-                        if (retCode != 0)
-                        {
-                            var mensaje = mensajeParam.Value?.ToString() ?? "Error desconocido en PA_NSERIES_SEGUIMIENTO";
-                            await transaction.RollbackAsync();
-                            return BadRequest($"Error en el seguimiento de NSerie '{nserie}': {mensaje}");
-                        }
-                    }
-                }
-            }
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
@@ -280,6 +277,7 @@ public class IcpController : ControllerBase
                       Id = log.Id,
                       Peticion = log.Peticion,
                       Palet = log.Palet,
+                      PaletRetirada = log.PaletRetirada,
                       Referencia = log.Referencia,
                       CantidadQuitada = log.CantidadQuitada,
                       FechaVerificacion = log.FechaVerificacion,
@@ -304,6 +302,7 @@ public class IcpController : ControllerBase
                       Id = log.Id,
                       Peticion = log.Peticion,
                       Palet = log.Palet,
+                      PaletRetirada = log.PaletRetirada,
                       Referencia = log.Referencia,
                       CantidadQuitada = log.CantidadQuitada,
                       FechaVerificacion = log.FechaVerificacion,

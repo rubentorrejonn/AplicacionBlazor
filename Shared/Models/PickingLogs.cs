@@ -18,6 +18,8 @@ namespace UltimateProyect.Shared.Models
 
         [Column("PALET")]
         public int Palet { get; set; }
+        [Column("PALET_RETIRADA")]
+        public int? PaletRetirada { get; set; }
 
         [Column("REFERENCIA")]
         public string Referencia { get; set; } = null!;
