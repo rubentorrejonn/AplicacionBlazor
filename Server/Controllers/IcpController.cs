@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using System.Data;
 using UltimateProyect.Server.Data;
 using UltimateProyect.Shared.Models;
@@ -100,7 +101,10 @@ public class IcpController : ControllerBase
             return Unauthorized("Usuario no autenticado.");
         }
 
-        using var transaction = await _context.Database.BeginTransactionAsync();
+        using IDbContextTransaction transaction = await _context.Database.BeginTransactionAsync();
+        var connection = _context.Database.GetDbConnection();
+        var dbTransaction = transaction.GetDbTransaction();
+
 
         try
         {
@@ -120,6 +124,7 @@ public class IcpController : ControllerBase
 
                 if (cantidadNecesaria > 0)
                 {
+                    await transaction.RollbackAsync();
                     return BadRequest($"No hay suficiente stock para la referencia {linea.Referencia}.");
                 }
 
@@ -131,6 +136,7 @@ public class IcpController : ControllerBase
 
                     if (numerosSerieValidos.Count != linea.Cantidad)
                     {
+                        await transaction.RollbackAsync();
                         return BadRequest($"La línea {linea.Linea} requiere {linea.Cantidad} números de serie, pero se proporcionaron {numerosSerieValidos.Count}.");
                     }
 
@@ -145,11 +151,13 @@ public class IcpController : ControllerBase
                     var todosValidos = numerosSerieValidos.All(ns => nsDisponiblesSet.Contains(ns));
                     if (!todosValidos)
                     {
+                        await transaction.RollbackAsync();
                         return BadRequest("Números de serie inválidos.");
                     }
                 }
             }
 
+            var todosLosLogs = new List<PickingLogs>();
             foreach (var linea in verificacion.Lineas)
             {
                 var paletsDisponibles = await _context.Palets
@@ -157,9 +165,7 @@ public class IcpController : ControllerBase
                     .OrderBy(p => p.Palet)
                     .ToListAsync();
 
-                var paletsAsignadosALinea = new List<Palets>();
                 var cantidadNecesaria = linea.Cantidad;
-
                 foreach (var palet in paletsDisponibles)
                 {
                     if (cantidadNecesaria <= 0) break;
@@ -168,31 +174,7 @@ public class IcpController : ControllerBase
                     palet.Cantidad -= cantidadARestar;
                     cantidadNecesaria -= cantidadARestar;
 
-                    paletsAsignadosALinea.Add(palet);
-
-                    if (palet.Cantidad == 0)
-                        palet.Estado = 5;
-                    else
-                        palet.Estado = 1;
-
-                    _context.Palets.Update(palet);
-                }
-
-                if (linea.RequiereNSerie == true)
-                {
-                    foreach (var nserie in linea.NumerosSerie)
-                    {
-                        if (!string.IsNullOrEmpty(nserie))
-                        {
-                            var nsEntity = await _context.NSeries_Recepciones
-                                .FirstOrDefaultAsync(ns => ns.NSerie == nserie && ns.Referencia == linea.Referencia);
-                            if (nsEntity != null)
-                            {
-                                nsEntity.Estado = 0;
-                                _context.NSeries_Recepciones.Update(nsEntity);
-                            }
-                        }
-                    }
+                    palet.Estado = (palet.Cantidad == 0) ? 5 : 1;
                 }
 
                 var paletOriginal = await _context.Palets
@@ -217,7 +199,64 @@ public class IcpController : ControllerBase
                 };
 
                 _context.Palets.Add(nuevoPalet);
+
                 await _context.SaveChangesAsync();
+
+
+                if (linea.RequiereNSerie == true && linea.NumerosSerie != null)
+                {
+                    if (connection.State != ConnectionState.Open)
+                    {
+                        await connection.OpenAsync();
+                    }
+
+                    foreach (var nserie in linea.NumerosSerie)
+                    {
+                        if (string.IsNullOrEmpty(nserie)) continue;
+
+                        using var command = connection.CreateCommand();
+                        command.CommandText = "PA_NSERIES_SEGUIMIENTO";
+                        command.CommandType = CommandType.StoredProcedure;
+                        command.Transaction = dbTransaction;
+
+                        command.Parameters.Add(new SqlParameter("@NSERIE", SqlDbType.VarChar, 30) { Value = nserie });
+                        command.Parameters.Add(new SqlParameter("@PALET", SqlDbType.Int) { Value = nuevoPalet.Palet });
+                        command.Parameters.Add(new SqlParameter("@PETICION", SqlDbType.Int) { Value = verificacion.Peticion });
+                        command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = paletOriginal.Albaran});
+                        command.Parameters.Add(new SqlParameter("@REFERENCIA", SqlDbType.VarChar, 30) { Value = linea.Referencia });
+                        command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
+                        command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
+                        command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
+
+                        var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                        var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
+                        command.Parameters.Add(retCodeParam);
+                        command.Parameters.Add(mensajeParam);
+
+                        await command.ExecuteNonQueryAsync();
+
+                        int retCode = retCodeParam.Value is int r ? r : -1;
+                        if (retCode != 0)
+                        {
+                            var mensaje = mensajeParam.Value?.ToString() ?? "Error desconocido en PA_NSERIES_SEGUIMIENTO";
+                            await transaction.RollbackAsync();
+                            return BadRequest($"Error en el seguimiento de NSerie '{nserie}': {mensaje}");
+                        }
+                    }
+
+                    foreach (var nserie in linea.NumerosSerie)
+                    {
+                        if (!string.IsNullOrEmpty(nserie))
+                        {
+                            var nsEntity = await _context.NSeries_Recepciones
+                                .FirstOrDefaultAsync(ns => ns.NSerie == nserie && ns.Referencia == linea.Referencia);
+                            if (nsEntity != null)
+                            {
+                                nsEntity.Estado = 0;
+                            }
+                        }
+                    }
+                }
 
                 var usuario = await _context.Usuarios.FindAsync(userIdActual);
                 var log = new PickingLogs
@@ -231,8 +270,7 @@ public class IcpController : ControllerBase
                     IdUsuario = userIdActual,
                     NombreUsuario = usuario?.UserName ?? ""
                 };
-
-                _context.PickingLog.Add(log);
+                todosLosLogs.Add(log);
 
                 var movimiento = await _context.Movimientos
                     .FirstOrDefaultAsync(m =>
@@ -245,12 +283,11 @@ public class IcpController : ControllerBase
                     movimiento.Palet = nuevoPalet.Palet;
                     movimiento.UbicacionDestino = "TRANSPORTE";
                     movimiento.Realizado = 1;
-                    _context.Movimientos.Update(movimiento);
                 }
             }
 
+            _context.PickingLog.AddRange(todosLosLogs);
             cabecera.Estado = 3;
-            _context.Orden_Salida_Cab.Update(cabecera);
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();

@@ -77,7 +77,6 @@ BEGIN TRY
 	WHILE @i <= @TotalLineas
 	BEGIN
 		-- LIMPIEZA EXPLÍCITA DE LA TABLA TEMPORAL DE PALETS AL INICIO DE CADA ITERACIÓN
-		-- USAMOS DROP/CREATE para asegurarnos que esté totalmente vacía y reiniciada
 		IF OBJECT_ID('tempdb..#PaletsDisponibles') IS NOT NULL
 		BEGIN
 			DROP TABLE #PaletsDisponibles;
@@ -97,7 +96,6 @@ BEGIN TRY
 
 		SET @CANTIDAD_ASIGNADA = 0;
 
-		-- Poblar la tabla temporal GLOBAL (#TableName) con los datos de la línea actual
 		INSERT INTO #PaletsDisponibles (PALET, CANTIDAD)
 		SELECT
 			PALET, CANTIDAD
@@ -154,9 +152,9 @@ BEGIN TRY
 				@CANTIDAD_A_COGER,
 				@REFERENCIA,
 				UBICACION = P.UBICACION,
-				UBICACION_DEST = 'TRANSPORTE',
+				UBICACION_DEST = '',
 				@LINEA,
-				REALIZADO = '1'
+				REALIZADO = '0'
 			FROM
 				 PALETS AS P
 			WHERE
@@ -165,9 +163,8 @@ BEGIN TRY
 			-- ACTUALIZAR CANTIDAD ASIGNADA
 			SET @CANTIDAD_ASIGNADA = @CANTIDAD_ASIGNADA + @CANTIDAD_A_COGER
 			SET @j = @j + 1;
-		END -- FIN DEL BUCLE INTERNO DE PALETS
+		END 
 
-		-- Comprobaciones de stock. Si falla, hacemos ROLLBACK y RETURN inmediatamente.
 		IF @CANTIDAD_REQUERIDA IS NULL OR @CANTIDAD_ASIGNADA < @CANTIDAD_REQUERIDA
 		BEGIN
 			IF @CANTIDAD_REQUERIDA IS NULL
@@ -181,7 +178,6 @@ BEGIN TRY
 			
 			SET @RETCODE = 1
 			
-			-- !!! CRUCIAL: HACER ROLLBACK Y SALIR INMEDIATAMENTE !!!
 			IF @N_TRANS = 0 AND @@TRANCOUNT > 0
 			BEGIN
 				ROLLBACK TRANSACTION TR_NOMBRE_TRANSACTION
@@ -192,9 +188,8 @@ BEGIN TRY
 		END
 
 		SET @i = @i + 1;
-	END -- FIN DEL BUCLE PRINCIPAL DE LINEAS
+	END
 
-	-- Si todo va bien para todas las líneas, actualiza el estado de la cabecera una sola vez al final
 	UPDATE ORDEN_SALIDA_CAB SET ESTADO = '2' WHERE PETICION = @PETICION;
 
 	----------------------------------------------------------------------------------------------------------------------------------------------

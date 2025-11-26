@@ -1,15 +1,20 @@
-USE FCT_OCT_1
+USE [FCT_OCT_1]
+GO
+/****** Object:  StoredProcedure [dbo].[PA_MOVIMIENTOS_LOG]    Script Date: 14/11/2025 14:20:20 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
 GO
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------------
 
-	NOMBRE DEL PROCEDIMIENTO:	PA_NSERIES_SEGUIMIENTO
-	FECHA DE CREACIÓN: 		20/11/2025
+	NOMBRE DEL PROCEDIMIENTO:	PA_MOVIMIENTOS_LOG
+	FECHA DE CREACIÓN: 		14/11/2025
 	AUTOR:				Rubén
 	VSS:				E:\DevOps\PRACTICAS\FCT_PRACTICAS\2025\FCT_OCT_1\SQL\PROCEDIMIENTOS ALMACENADOS
 	USO:				##VISUAL##
 
-	FUNCIONAMIENTO:			AL HACER EL PICKING Y COMPLETARLO, GUARDA LOS PRODUCTOS CON NSERIE SOLICITADOS
+	FUNCIONAMIENTO:			ACTUALIZAR TABLA MOVIMIENTOS LOG.
 
 	PARAMETROS:			(OPCIONAL)
 		PARAMETRO1 		INPUT	EXPLICACION
@@ -21,13 +26,15 @@ GO
 --	EXPLICACIÓN:	
 ------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-ALTER PROCEDURE [dbo].[PA_NSERIES_SEGUIMIENTO]
+ALTER PROCEDURE [dbo].[PA_MOVIMIENTOS_LOG]
 	
-	@NSERIE		VARCHAR(30),
 	@PETICION	INT,
 	@PALET		INT,
-	@ALBARAN	INT,
 	@REFERENCIA	VARCHAR(30),
+	@UBICACION_ORIGEN VARCHAR(30),
+	@UBICACION_DESTINO VARCHAR(30),
+	@FECHA_MOVIMIENTO DATETIME,
+	@IDUSUARIO	INT,
 	
 
 	@INVOKER	INT,		-- ESTE PARÁMETRO LO DEBEN TENER TODOS LOS PAS
@@ -41,12 +48,18 @@ AS
 
 BEGIN TRY
 	--DECLARACION DE VARIABLES 
-	DECLARE @ALBARAN_RECEPCION INT;
 
 	DECLARE @N_TRANS		INT = 0	 --NUMERO DE TRANSACCIONES ACTIVAS	(@@TRANCOUNT)
 	SET @N_TRANS = @@TRANCOUNT
 
 	--COMPROBACIONES
+	IF NOT EXISTS (SELECT 1 FROM USUARIOS WHERE IDUSUARIO = @IDUSUARIO)
+	BEGIN
+		SET @MENSAJE = 'El usuario con ID ' + CAST(@IDUSUARIO AS VARCHAR(10)) + ' no existe.';
+		SET @RETCODE = 1;
+		RETURN @RETCODE;
+	END
+	
 	----------------------------------------------------------------------------------------------------------------------------------------------
 	IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
 	BEGIN
@@ -55,38 +68,8 @@ BEGIN TRY
 	----------------------------------------------------------------------------------------------------------------------------------------------
 
 	--OPERACIONES
-	SELECT TOP
-		 1 @ALBARAN_RECEPCION = ALBARAN
-	FROM
-		 NSeries_Recepciones
-	WHERE
-		 NSerie = @NSERIE
-	AND
-		 Referencia = @REFERENCIA;
-
-	IF @ALBARAN_RECEPCION IS NULL
-	BEGIN
-		SET @MENSAJE = 'No se encontró el albarán de recepción para este número de serie.';
-		SET @RETCODE = -1;
-		RETURN;
-	END
-
-	INSERT INTO NSERIES_SEGUIMIENTO(
-		NSERIE,
-		PETICION, 
-		PALET,
-		ALBARAN, 
-		REFERENCIA, 
-		F_PICKING
-	)
-	VALUES (
-		@NSERIE,
-		@PETICION, 
-		@PALET, 
-		@ALBARAN_RECEPCION, 
-		@REFERENCIA, 
-		GETDATE()
-	);
+	INSERT INTO MOVIMIENTOS_LOG(PETICION, PALET, REFERENCIA, UBICACION_ORIGEN,  UBICACION_DESTINO, FECHA_MOVIMIENTO, IDUSUARIO)
+	VALUES(@PETICION, @PALET, @REFERENCIA, @UBICACION_ORIGEN, @UBICACION_DESTINO, @FECHA_MOVIMIENTO, @IDUSUARIO)
 
 
 	----------------------------------------------------------------------------------------------------------------------------------------------
@@ -99,8 +82,7 @@ BEGIN TRY
 
 	SET @MENSAJE = 'El proceso se ha realizado correctamente.'
 	SET @RETCODE = 0
-	
-
+	RETURN @RETCODE
 END TRY
 BEGIN CATCH
 	----------------------------------------------------------------------------------------------------------------------------------------------
@@ -109,10 +91,18 @@ BEGIN CATCH
 		ROLLBACK TRANSACTION TR_NOMBRE_TRANSACTION
 	END
 	----------------------------------------------------------------------------------------------------------------------------------------------
-		SET  @MENSAJE = ISNULL(ERROR_MESSAGE(), 'Error desconocido en PA_NSERIES_SEGUIMIENTO');
-		SET @RETCODE = -1
-
+	IF @MENSAJE = '' 
+	BEGIN
+		SET  @MENSAJE = ERROR_MESSAGE()
+	END
+	
+	SET @RETCODE = -1
+		
+	RETURN @RETCODE
 END CATCH
+
+	SET @RETCODE = -1		
+	RETURN @RETCODE
 
 
 

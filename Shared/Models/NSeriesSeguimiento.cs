@@ -12,6 +12,8 @@ namespace UltimateProyect.Shared.Models
         //PK y FK DE NSERIE_RECEPCIONES
         [Column("NSERIE")]
         public string NSerie { get; set; } = null!;
+        [Column("PETICION")]
+        public int? Peticion { get; set; }
         //FK
         [Column("PALET")]
         public int Palet { get; set; }

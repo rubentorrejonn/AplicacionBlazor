@@ -3,13 +3,13 @@ GO
 
 /*-----------------------------------------------------------------------------------------------------------------------------------------------------
 
-	NOMBRE DEL PROCEDIMIENTO:	PA_NSERIES_SEGUIMIENTO
-	FECHA DE CREACIÓN: 		20/11/2025
+	NOMBRE DEL PROCEDIMIENTO:	PA_ACTUALIZAR_MOVIMIENTOS
+	FECHA DE CREACIÓN: 		25/11/2025
 	AUTOR:				Rubén
 	VSS:				E:\DevOps\PRACTICAS\FCT_PRACTICAS\2025\FCT_OCT_1\SQL\PROCEDIMIENTOS ALMACENADOS
 	USO:				##VISUAL##
 
-	FUNCIONAMIENTO:			AL HACER EL PICKING Y COMPLETARLO, GUARDA LOS PRODUCTOS CON NSERIE SOLICITADOS
+	FUNCIONAMIENTO:			ACTUALIZA LA TABLA MOVIMIENTOS A REALIZADO Y A UBICACIONES CON LOS NUEVOS PALETS GENERADOS
 
 	PARAMETROS:			(OPCIONAL)
 		PARAMETRO1 		INPUT	EXPLICACION
@@ -21,14 +21,9 @@ GO
 --	EXPLICACIÓN:	
 ------------------------------------------------------------------------------------------------------------------------------------------------------*/
 
-ALTER PROCEDURE [dbo].[PA_NSERIES_SEGUIMIENTO]
+CREATE PROCEDURE PA_ACTUALIZAR_MOVIMIENTOS
 	
-	@NSERIE		VARCHAR(30),
-	@PETICION	INT,
-	@PALET		INT,
-	@ALBARAN	INT,
-	@REFERENCIA	VARCHAR(30),
-	
+	@ID_MOVIMIENTOS INT,
 
 	@INVOKER	INT,		-- ESTE PARÁMETRO LO DEBEN TENER TODOS LOS PAS
 	@USUARIO	VARCHAR(12),	-- ESTE PARÁMETRO LO DEBEN TENER TODOS LOS PAS
@@ -41,12 +36,29 @@ AS
 
 BEGIN TRY
 	--DECLARACION DE VARIABLES 
-	DECLARE @ALBARAN_RECEPCION INT;
 
 	DECLARE @N_TRANS		INT = 0	 --NUMERO DE TRANSACCIONES ACTIVAS	(@@TRANCOUNT)
 	SET @N_TRANS = @@TRANCOUNT
 
+	DECLARE @PETICION INT
+	DECLARE @PALET	INT
+	DECLARE @CANTIDAD INT
+	DECLARE @REFERENCIA VARCHAR(30)
+	DECLARE @UBICACION_ORIGEN VARCHAR(30)
+	DECLARE @UBICACION_DESTINO VARCHAR(30)
+	DECLARE @LIN_PETICION INT
+	DECLARE @REALIZADO INT
+
+
+
+
 	--COMPROBACIONES
+	 IF NOT EXISTS (SELECT 1 FROM Movimientos WHERE ID_MOVIMIENTOS = @ID_MOVIMIENTOS)
+	BEGIN
+		SET @MENSAJE = 'El movimiento con ID ' + CAST(@ID_MOVIMIENTOS AS VARCHAR) + ' no existe.';
+		SET @RETCODE = 1
+	END
+	
 	----------------------------------------------------------------------------------------------------------------------------------------------
 	IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
 	BEGIN
@@ -55,39 +67,14 @@ BEGIN TRY
 	----------------------------------------------------------------------------------------------------------------------------------------------
 
 	--OPERACIONES
-	SELECT TOP
-		 1 @ALBARAN_RECEPCION = ALBARAN
-	FROM
-		 NSeries_Recepciones
+	UPDATE 
+		MOVIMIENTOS
+	SET 
+		REALIZADO = 1,
+		UBICACION_DESTINO = 'TRANSPORTE'
 	WHERE
-		 NSerie = @NSERIE
-	AND
-		 Referencia = @REFERENCIA;
-
-	IF @ALBARAN_RECEPCION IS NULL
-	BEGIN
-		SET @MENSAJE = 'No se encontró el albarán de recepción para este número de serie.';
-		SET @RETCODE = -1;
-		RETURN;
-	END
-
-	INSERT INTO NSERIES_SEGUIMIENTO(
-		NSERIE,
-		PETICION, 
-		PALET,
-		ALBARAN, 
-		REFERENCIA, 
-		F_PICKING
-	)
-	VALUES (
-		@NSERIE,
-		@PETICION, 
-		@PALET, 
-		@ALBARAN_RECEPCION, 
-		@REFERENCIA, 
-		GETDATE()
-	);
-
+		ID_MOVIMIENTOS = @ID_MOVIMIENTOS
+	
 
 	----------------------------------------------------------------------------------------------------------------------------------------------
 	IF @N_TRANS = 0						-- Si hay una transacción por encima no hacemos nada
@@ -99,8 +86,7 @@ BEGIN TRY
 
 	SET @MENSAJE = 'El proceso se ha realizado correctamente.'
 	SET @RETCODE = 0
-	
-
+	RETURN @RETCODE
 END TRY
 BEGIN CATCH
 	----------------------------------------------------------------------------------------------------------------------------------------------
@@ -109,10 +95,18 @@ BEGIN CATCH
 		ROLLBACK TRANSACTION TR_NOMBRE_TRANSACTION
 	END
 	----------------------------------------------------------------------------------------------------------------------------------------------
-		SET  @MENSAJE = ISNULL(ERROR_MESSAGE(), 'Error desconocido en PA_NSERIES_SEGUIMIENTO');
-		SET @RETCODE = -1
-
+	IF @MENSAJE = '' 
+	BEGIN
+		SET  @MENSAJE = ERROR_MESSAGE()
+	END
+	
+	SET @RETCODE = -1
+		
+	RETURN @RETCODE
 END CATCH
+
+	SET @RETCODE = -1		
+	RETURN @RETCODE
 
 
 
