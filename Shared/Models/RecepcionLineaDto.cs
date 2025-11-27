@@ -1,4 +1,6 @@
-﻿namespace UltimateProyect.Shared.Models;
+﻿using System.Text.Json.Serialization;
+
+namespace UltimateProyect.Shared.Models;
 
 public class RecepcionLineaDto
 {
@@ -15,4 +17,12 @@ public class RecepcionLineaDto
     public DateTime? FCreacion { get; set; }
     public List<string> NumerosSerieBien { get; set; } = new();
     public List<string> NumerosSerieMal { get; set; } = new();
+    public List<PaletVerificacionDto> PaletsDisponibles { get; set; } = new();
+
+    // Para compatibilidad con la vista existente
+    [JsonIgnore]
+    public int Palet => PaletsDisponibles.FirstOrDefault()?.Palet ?? 0;
+
+    [JsonIgnore]
+    public string Ubicacion => PaletsDisponibles.FirstOrDefault()?.Ubicacion ?? string.Empty;
 }

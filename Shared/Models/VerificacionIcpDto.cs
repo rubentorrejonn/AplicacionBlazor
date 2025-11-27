@@ -1,4 +1,6 @@
-﻿namespace UltimateProyect.Shared.Models;
+﻿using System.Text.Json.Serialization;
+
+namespace UltimateProyect.Shared.Models;
 
 public class VerificacionIcpDto
 {
@@ -12,11 +14,16 @@ public class LineaVerificacionDto
     public int Linea { get; set; }
     public string Referencia { get; set; } = null!;
     public string DesReferencia { get; set; } = null!;
-    public int Palet { get; set; }
-    public string Ubicacion { get; set; }
     public int Cantidad { get; set; }
     public bool? RequiereNSerie { get; set; }
     public int? LongNSerie { get; set; }
     public List<string> NumerosSerie { get; set; } = new();
+    public List<PaletVerificacionDto> PaletsDisponibles { get; set; } = new();
     public List<string> NumerosSerieValidos { get; set; } = new();
+    public Dictionary<int, List<string>> NumerosSeriePorPalet { get; set; } = new();
+    [JsonIgnore]
+    public int Palet => PaletsDisponibles.FirstOrDefault()?.Palet ?? 0;
+    [JsonIgnore]
+    public string Ubicacion => PaletsDisponibles.FirstOrDefault()?.Ubicacion ?? string.Empty;
+
 }

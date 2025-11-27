@@ -36,49 +36,60 @@ public class IcpController : ControllerBase
         if (cabecera == null)
             return NotFound("La petición no existe o no está en estado de verificación.");
 
-        var lineas = await _context.Orden_Salida_Lin
+        var lineasConPalets = await _context.Orden_Salida_Lin
             .Where(l => l.Peticion == peticion)
             .Join(_context.Referencias,
                   lin => lin.Referencia,
                   refe => refe.Referencia,
                   (lin, refe) => new { lin, refe })
-            .Select(x => new LineaVerificacionDto
-            {
-                Linea = x.lin.Linea,
-                Referencia = x.lin.Referencia,
-                DesReferencia = x.refe.DesReferencia,
-                Cantidad = x.lin.Cantidad,
-                RequiereNSerie = x.refe.NSerie,
-                LongNSerie = x.refe.LongNSerie,
-                Palet = 0,
-                Ubicacion = string.Empty,
-                NumerosSerieValidos = _context.NSeries_Recepciones
-                    .Where(ns => ns.Referencia == x.lin.Referencia && ns.Estado == 1)
-                    .Select(ns => ns.NSerie)
-                    .ToList()
-            })
-            .OrderBy(l => l.Linea)
             .ToListAsync();
 
-        foreach (var linea in lineas)
+        var resultado = new List<LineaVerificacionDto>();
+        foreach (var item in lineasConPalets)
         {
-            var paletAsociado = await _context.Palets
-                .Where(p => p.Referencia == linea.Referencia && p.Estado == 3)
-                .OrderBy(p => p.Palet)
-                .FirstOrDefaultAsync();
+            var nsGlobal = await _context.NSeries_Recepciones
+                .Where(ns => ns.Referencia == item.lin.Referencia && ns.Estado == 1)
+                .Select(ns => ns.NSerie)
+                .ToListAsync();
 
-            if (paletAsociado != null)
+            var paletsAsignados = await _context.PeticionPalets
+                .Where(pp => pp.Peticion == peticion)
+                .Join(_context.Palets,
+                      pp => pp.Palet,
+                      p => p.Palet,
+                      (pp, p) => new { pp, p })
+                .Where(x => x.p.Referencia == item.lin.Referencia)
+                .Select(x => new PaletVerificacionDto
+                {
+                    Palet = x.p.Palet,
+                    Ubicacion = x.p.Ubicacion,
+                    Cantidad = x.pp.Cantidad,
+                    NumerosSerieValidos = _context.NSeries_Recepciones
+                        .Where(ns => ns.Palet == x.p.Palet && ns.Estado == 1)
+                        .Select(ns => ns.NSerie)
+                        .ToList()
+                })
+                .OrderBy(p => p.Palet)
+                .ToListAsync();
+
+            resultado.Add(new LineaVerificacionDto
             {
-                linea.Palet = paletAsociado.Palet;
-                linea.Ubicacion = paletAsociado.Ubicacion;
-            }
+                Linea = item.lin.Linea,
+                Referencia = item.lin.Referencia,
+                DesReferencia = item.refe.DesReferencia,
+                Cantidad = item.lin.Cantidad,
+                RequiereNSerie = item.refe.NSerie,
+                LongNSerie = item.refe.LongNSerie,
+                NumerosSerieValidos = nsGlobal,
+                PaletsDisponibles = paletsAsignados
+            });
         }
 
         var verificacion = new VerificacionIcpDto
         {
             Peticion = peticion,
             NombreCliente = cabecera.NombreCliente,
-            Lineas = lineas
+            Lineas = resultado
         };
 
         return Ok(verificacion);
@@ -101,58 +112,41 @@ public class IcpController : ControllerBase
             return Unauthorized("Usuario no autenticado.");
         }
 
-        using IDbContextTransaction transaction = await _context.Database.BeginTransactionAsync();
-        var connection = _context.Database.GetDbConnection();
-        var dbTransaction = transaction.GetDbTransaction();
-
-
         try
         {
             foreach (var linea in verificacion.Lineas)
             {
-                var paletsDisponibles = await _context.Palets
-                    .Where(p => p.Referencia == linea.Referencia && p.Estado == 3)
-                    .OrderBy(p => p.Palet)
+                var paletsAsignados = await _context.PeticionPalets
+                    .Where(pp => pp.Peticion == verificacion.Peticion && pp.Referencia == linea.Referencia)
                     .ToListAsync();
 
-                var cantidadNecesaria = linea.Cantidad;
-                foreach (var palet in paletsDisponibles)
-                {
-                    if (cantidadNecesaria <= 0) break;
-                    cantidadNecesaria -= Math.Min(cantidadNecesaria, palet.Cantidad);
-                }
-
-                if (cantidadNecesaria > 0)
-                {
-                    await transaction.RollbackAsync();
-                    return BadRequest($"No hay suficiente stock para la referencia {linea.Referencia}.");
-                }
+                var totalAsignado = paletsAsignados.Sum(p => p.Cantidad);
+                if (totalAsignado != linea.Cantidad)
+                    return BadRequest($"La cantidad asignada ({totalAsignado}) no coincide con la línea ({linea.Cantidad}).");
 
                 if (linea.RequiereNSerie == true)
                 {
-                    var numerosSerieValidos = linea.NumerosSerie
+                    var nsIngresados = linea.NumerosSerie
                         .Where(ns => !string.IsNullOrWhiteSpace(ns))
                         .ToList();
 
-                    if (numerosSerieValidos.Count != linea.Cantidad)
-                    {
-                        await transaction.RollbackAsync();
-                        return BadRequest($"La línea {linea.Linea} requiere {linea.Cantidad} números de serie, pero se proporcionaron {numerosSerieValidos.Count}.");
-                    }
+                    if (nsIngresados.Count != linea.Cantidad)
+                        return BadRequest($"La línea {linea.Linea} requiere {linea.Cantidad} números de serie.");
 
-                    var nsDisponiblesSet = new HashSet<string>(
-                        await _context.NSeries_Recepciones
-                            .Where(ns => ns.Referencia == linea.Referencia && ns.Estado == 1)
+                    var indice = 0;
+                    foreach (var paletAsig in paletsAsignados.OrderBy(p => p.Palet))
+                    {
+                        var nsParaPalet = nsIngresados.Skip(indice).Take(paletAsig.Cantidad).ToList();
+                        indice += paletAsig.Cantidad;
+
+                        var nsValidos = await _context.NSeries_Recepciones
+                            .Where(ns => ns.Palet == paletAsig.Palet && ns.Estado == 1)
                             .Select(ns => ns.NSerie)
-                            .ToListAsync(),
-                        StringComparer.OrdinalIgnoreCase
-                    );
+                            .ToListAsync();
 
-                    var todosValidos = numerosSerieValidos.All(ns => nsDisponiblesSet.Contains(ns));
-                    if (!todosValidos)
-                    {
-                        await transaction.RollbackAsync();
-                        return BadRequest("Números de serie inválidos.");
+                        var invalidos = nsParaPalet.Except(nsValidos, StringComparer.OrdinalIgnoreCase).ToList();
+                        if (invalidos.Any())
+                            return BadRequest($"NSeries inválidos para el palet {paletAsig.Palet}: {string.Join(", ", invalidos)}");
                     }
                 }
             }
@@ -160,143 +154,135 @@ public class IcpController : ControllerBase
             var todosLosLogs = new List<PickingLogs>();
             foreach (var linea in verificacion.Lineas)
             {
-                var paletsDisponibles = await _context.Palets
-                    .Where(p => p.Referencia == linea.Referencia && p.Estado == 3)
-                    .OrderBy(p => p.Palet)
+                var paletsAsignados = await _context.PeticionPalets
+                    .Where(pp => pp.Peticion == verificacion.Peticion && pp.Referencia == linea.Referencia)
+                    .OrderBy(pp => pp.Palet)
                     .ToListAsync();
 
-                var cantidadNecesaria = linea.Cantidad;
-                foreach (var palet in paletsDisponibles)
+                foreach (var paletAsig in paletsAsignados)
                 {
-                    if (cantidadNecesaria <= 0) break;
+                    var paletOriginal = await _context.Palets.FindAsync(paletAsig.Palet);
+                    if (paletOriginal == null) continue;
 
-                    var cantidadARestar = Math.Min(cantidadNecesaria, palet.Cantidad);
-                    palet.Cantidad -= cantidadARestar;
-                    cantidadNecesaria -= cantidadARestar;
+                    paletOriginal.Cantidad -= paletAsig.Cantidad;
+                    paletOriginal.Estado = paletOriginal.Cantidad == 0 ? 5 : 1;
+                    _context.Palets.Update(paletOriginal);
 
-                    palet.Estado = (palet.Cantidad == 0) ? 5 : 1;
+                    var nuevoPalet = new Palets
+                    {
+                        Referencia = linea.Referencia,
+                        Cantidad = paletAsig.Cantidad,
+                        Albaran = paletOriginal.Albaran,
+                        Ubicacion = paletOriginal.Ubicacion,
+                        Estado = 4,
+                        FInsert = DateTime.Now
+                    };
+                    _context.Palets.Add(nuevoPalet);
                 }
+            }
 
-                var paletOriginal = await _context.Palets
-                    .Where(p => p.Referencia == linea.Referencia && p.Estado == 3)
-                    .OrderBy(p => p.Palet)
-                    .FirstOrDefaultAsync();
+            await _context.SaveChangesAsync();
 
-                if (paletOriginal == null)
+            foreach (var linea in verificacion.Lineas)
+            {
+                var paletsAsignados = await _context.PeticionPalets
+                    .Where(pp => pp.Peticion == verificacion.Peticion && pp.Referencia == linea.Referencia)
+                    .OrderBy(pp => pp.Palet)
+                    .ToListAsync();
+
+                var nsIngresados = linea.NumerosSerie.Where(ns => !string.IsNullOrWhiteSpace(ns)).ToList();
+                int indiceNs = 0;
+
+                foreach (var paletAsig in paletsAsignados)
                 {
-                    await transaction.RollbackAsync();
-                    return BadRequest($"No hay palet disponible para la referencia {linea.Referencia}.");
-                }
+                    var paletOriginal = await _context.Palets.FindAsync(paletAsig.Palet);
+                    if (paletOriginal == null) continue;
 
-                var nuevoPalet = new Palets
-                {
-                    Referencia = linea.Referencia,
-                    Cantidad = linea.Cantidad,
-                    Albaran = paletOriginal.Albaran,
-                    Ubicacion = paletOriginal.Ubicacion,
-                    Estado = 4,
-                    FInsert = DateTime.Now
-                };
+                    var nuevoPalet = await _context.Palets
+                        .Where(p => p.Referencia == linea.Referencia && p.Estado == 4 && p.Albaran == paletOriginal.Albaran)
+                        .OrderByDescending(p => p.Palet)
+                        .FirstOrDefaultAsync();
 
-                _context.Palets.Add(nuevoPalet);
+                    if (nuevoPalet == null) continue;
 
-                await _context.SaveChangesAsync();
+                    var nsParaPalet = nsIngresados.Skip(indiceNs).Take(paletAsig.Cantidad).ToList();
+                    indiceNs += paletAsig.Cantidad;
 
-
-                if (linea.RequiereNSerie == true && linea.NumerosSerie != null)
-                {
-                    if (connection.State != ConnectionState.Open)
+                    if (linea.RequiereNSerie == true)
                     {
-                        await connection.OpenAsync();
-                    }
-
-                    foreach (var nserie in linea.NumerosSerie)
-                    {
-                        if (string.IsNullOrEmpty(nserie)) continue;
-
-                        using var command = connection.CreateCommand();
-                        command.CommandText = "PA_NSERIES_SEGUIMIENTO";
-                        command.CommandType = CommandType.StoredProcedure;
-                        command.Transaction = dbTransaction;
-
-                        command.Parameters.Add(new SqlParameter("@NSERIE", SqlDbType.VarChar, 30) { Value = nserie });
-                        command.Parameters.Add(new SqlParameter("@PALET", SqlDbType.Int) { Value = nuevoPalet.Palet });
-                        command.Parameters.Add(new SqlParameter("@PETICION", SqlDbType.Int) { Value = verificacion.Peticion });
-                        command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = paletOriginal.Albaran});
-                        command.Parameters.Add(new SqlParameter("@REFERENCIA", SqlDbType.VarChar, 30) { Value = linea.Referencia });
-                        command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
-                        command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
-                        command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
-
-                        var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
-                        var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
-                        command.Parameters.Add(retCodeParam);
-                        command.Parameters.Add(mensajeParam);
-
-                        await command.ExecuteNonQueryAsync();
-
-                        int retCode = retCodeParam.Value is int r ? r : -1;
-                        if (retCode != 0)
+                        foreach (var nserie in nsParaPalet)
                         {
-                            var mensaje = mensajeParam.Value?.ToString() ?? "Error desconocido en PA_NSERIES_SEGUIMIENTO";
-                            await transaction.RollbackAsync();
-                            return BadRequest($"Error en el seguimiento de NSerie '{nserie}': {mensaje}");
-                        }
-                    }
+                            var connectionString = _context.Database.GetConnectionString();
+                            using var connection = new SqlConnection(connectionString);
+                            await connection.OpenAsync();
+                            using var command = new SqlCommand("PA_NSERIES_SEGUIMIENTO", connection);
+                            command.CommandType = CommandType.StoredProcedure;
 
-                    foreach (var nserie in linea.NumerosSerie)
-                    {
-                        if (!string.IsNullOrEmpty(nserie))
-                        {
+                            command.Parameters.Add(new SqlParameter("@NSERIE", SqlDbType.VarChar, 30) { Value = nserie });
+                            command.Parameters.Add(new SqlParameter("@PALET", SqlDbType.Int) { Value = nuevoPalet.Palet });
+                            command.Parameters.Add(new SqlParameter("@PETICION", SqlDbType.Int) { Value = verificacion.Peticion });
+                            command.Parameters.Add(new SqlParameter("@ALBARAN", SqlDbType.Int) { Value = paletOriginal.Albaran });
+                            command.Parameters.Add(new SqlParameter("@REFERENCIA", SqlDbType.VarChar, 30) { Value = linea.Referencia });
+                            command.Parameters.Add(new SqlParameter("@INVOKER", SqlDbType.Int) { Value = 0 });
+                            command.Parameters.Add(new SqlParameter("@USUARIO", SqlDbType.VarChar, 12) { Value = "" });
+                            command.Parameters.Add(new SqlParameter("@CULTURA", SqlDbType.VarChar, 5) { Value = "" });
+
+                            var retCodeParam = new SqlParameter("@RETCODE", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                            var mensajeParam = new SqlParameter("@MENSAJE", SqlDbType.VarChar, 1000) { Direction = ParameterDirection.Output };
+                            command.Parameters.Add(retCodeParam);
+                            command.Parameters.Add(mensajeParam);
+
+                            await command.ExecuteNonQueryAsync();
+
                             var nsEntity = await _context.NSeries_Recepciones
-                                .FirstOrDefaultAsync(ns => ns.NSerie == nserie && ns.Referencia == linea.Referencia);
+                                .FirstOrDefaultAsync(ns => ns.NSerie == nserie && ns.Palet == paletAsig.Palet);
                             if (nsEntity != null)
                             {
                                 nsEntity.Estado = 0;
+                                _context.NSeries_Recepciones.Update(nsEntity);
                             }
                         }
                     }
-                }
 
-                var usuario = await _context.Usuarios.FindAsync(userIdActual);
-                var log = new PickingLogs
-                {
-                    Peticion = verificacion.Peticion,
-                    Palet = nuevoPalet.Palet,
-                    PaletRetirada = paletOriginal.Palet,
-                    Referencia = linea.Referencia,
-                    CantidadQuitada = linea.Cantidad,
-                    FechaVerificacion = DateTime.Now,
-                    IdUsuario = userIdActual,
-                    NombreUsuario = usuario?.UserName ?? ""
-                };
-                todosLosLogs.Add(log);
+                    var usuario = await _context.Usuarios.FindAsync(userIdActual);
+                    var log = new PickingLogs
+                    {
+                        Peticion = verificacion.Peticion,
+                        Palet = nuevoPalet.Palet,
+                        PaletRetirada = paletOriginal.Palet,
+                        Referencia = linea.Referencia,
+                        CantidadQuitada = paletAsig.Cantidad,
+                        FechaVerificacion = DateTime.Now,
+                        IdUsuario = userIdActual,
+                        NombreUsuario = usuario?.UserName ?? ""
+                    };
+                    todosLosLogs.Add(log);
 
-                var movimiento = await _context.Movimientos
-                    .FirstOrDefaultAsync(m =>
-                        m.Peticion == verificacion.Peticion &&
-                        m.Referencia == linea.Referencia &&
-                        m.LinPeticion == linea.Linea);
+                    var movimiento = await _context.Movimientos
+                        .FirstOrDefaultAsync(m =>
+                            m.Peticion == verificacion.Peticion &&
+                            m.Referencia == linea.Referencia &&
+                            m.LinPeticion == linea.Linea);
 
-                if (movimiento != null)
-                {
-                    movimiento.Palet = nuevoPalet.Palet;
-                    movimiento.UbicacionDestino = "TRANSPORTE";
-                    movimiento.Realizado = 1;
+                    if (movimiento != null)
+                    {
+                        movimiento.Palet = nuevoPalet.Palet;
+                        movimiento.UbicacionDestino = "TRANSPORTE";
+                        movimiento.Realizado = 1;
+                        _context.Movimientos.Update(movimiento);
+                    }
                 }
             }
 
             _context.PickingLog.AddRange(todosLosLogs);
             cabecera.Estado = 3;
+            _context.Orden_Salida_Cab.Update(cabecera);
 
             await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
             return Ok(new { Message = "Verificación completada correctamente." });
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync();
             Console.WriteLine($"[ERROR] ConfirmarVerificacion: {ex.Message}");
             return StatusCode(500, new { Message = "Error interno al confirmar la verificación." });
         }

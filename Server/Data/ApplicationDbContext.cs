@@ -23,6 +23,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<VistaOrdenSalidaCab> V_OSC_ESTADO_DESCRIPCION { get; set; }
     public DbSet<VistaPaletsReservados> V_MOVIMIENTO_PALETS { get; set; }
     public DbSet<VistaRecepcionesLog> V_RECEPCIONES_LOG { get; set; }
+    public DbSet<PeticionPalets> PeticionPalets { get; set; }
     public DbSet<Movimientos> Movimientos { get; set; }
     public DbSet<Usuarios> Usuarios { get; set; }
 
