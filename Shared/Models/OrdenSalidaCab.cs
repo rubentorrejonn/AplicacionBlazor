@@ -28,7 +28,7 @@ namespace UltimateProyect.Shared.Models
         public string Poblacion { get; set; } = null!;
         [Column("PROVINCIA")]
         [Required(ErrorMessage = "La provincia es obligatoria.")]
-        [RegularExpression(@"^[a-zA-ZáéíóúÁÉÍÓÚñÑ]+$", ErrorMessage = "La provincia solo puede contener letras (sin espacios).")]
+        [RegularExpression(@"^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s\]+$", ErrorMessage = "La provincia solo puede contener letras (sin espacios).")]
         public string Provincia { get; set; } = null!;
         [Column("TELEFONO")]
         [Required(ErrorMessage = "El teléfono es obligatorio.")]

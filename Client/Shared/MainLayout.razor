@@ -17,18 +17,18 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <div class="collapse navbar-collapse @(menuAbierto ? "show" : "")" id="mainNavbar">
+                <div class="ms-15 mr-15 collapse navbar-collapse @(menuAbierto ? "show" : "")" id="mainNavbar">
                     <div class="navbar-nav">
                         <AuthorizeView Policy="Cliente">
-                            <NavLink class="nav-link" href="refpage">Referencias</NavLink>
-                            <NavLink class="nav-link" href="recepciones">Recepciones</NavLink>
-                            <NavLink class="nav-link" href="salidacab">Pedidos</NavLink>
-                            <NavLink class="nav-link" href="log">Visor</NavLink>
+                            <NavLink class="nav-link text-primary" href="refpage">Referencias</NavLink>
+                            <NavLink class="nav-link text-primary" href="recepciones">Recepciones</NavLink>
+                            <NavLink class="nav-link text-primary" href="salidacab">Pedidos</NavLink>
+                            <NavLink class="nav-link text-primary" href="log">Visor</NavLink>
                         </AuthorizeView>
                         <AuthorizeView Policy="ICP">
-                            <NavLink class="nav-link" href="icp">Recepcion ICP</NavLink>
-                            <NavLink class="nav-link" href="moverpalets">Mover Palets</NavLink>
-                            <NavLink class="nav-link" href="icp/picking">Picking</NavLink>
+                            <NavLink class="nav-link text-primary" href="icp">Recepcion ICP</NavLink>
+                            <NavLink class="nav-link text-primary" href="moverpalets">Mover Palets</NavLink>
+                            <NavLink class="nav-link text-primary" href="icp/picking">Picking</NavLink>
                         </AuthorizeView>
                     </div>
                 </div>

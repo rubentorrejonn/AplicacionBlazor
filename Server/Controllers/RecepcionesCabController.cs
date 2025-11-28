@@ -41,7 +41,8 @@ public class RecepcionesCabController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<RecepcionesCab>> PostRecepcion(RecepcionesCab recepcion)
     {
-        // No cambiar Estado ni DesEstado aquí
+        recepcion.Estado = 0;
+        recepcion.DesEstado = "Sin Recepcionar";
         _context.Recepciones_Cab.Add(recepcion);
         await _context.SaveChangesAsync();
 

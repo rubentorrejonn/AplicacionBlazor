@@ -10,7 +10,7 @@
         @if (authState != null && authState.User.Identity.IsAuthenticated)
         {
             <p class="lead">
-                Hola, @authState.User.Identity.Name. Utiliza el menú superior para gestionar tus tareas.
+                Hola, <span class="text-success">@authState.User.Identity.Name</span>. Utiliza el menú superior para gestionar tus tareas.
             </p>
         }
         else

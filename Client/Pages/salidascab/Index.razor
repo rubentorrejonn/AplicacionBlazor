@@ -4,64 +4,108 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
 
-<h3>Salidas Cab (Pedidos)</h3>
-<div class="mb-3">
-    <input @bind="filtroPeticion"
-           class="form-control"
-           placeholder="Buscar por pedido..."
-           @oninput="OnFiltroChanged" />
-</div>
-<a href="/salidacab/create" class="btn btn-success mb-3">Crear Nueva Salida</a>
+<div class="container py-4">
+    <h1 class="mb-4">Salidas Cab (Pedidos)</h1>
 
-@if (salidaCab == null)
-{
-    <p>Cargando...</p>
-}
-else if (salidaCab.Length == 0)
-{
-    <p>No hay cabeceras creadas</p>
-}
-else
-{
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        @foreach (var scab in peticionesFiltradas)
-        {
-            <div class="col">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Pedido #@scab.Peticion</h5>
-                        <span class="badge @(scab.Estado == 1 ? "bg-info" : scab.Estado == 3 ? "bg-success" : "bg-secondary")">
-                            @scab.Estado - @scab.DesEstado
-                        </span>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text">
-                            <strong>Cliente:</strong> @scab.NombreCliente<br />
-                            <strong>Dirección:</strong> @scab.DireccionEntrega<br />
-                            <strong>CP/Población:</strong> @scab.CodigoPostal, @scab.Poblacion<br />
-                            <strong>Provincia:</strong> @scab.Provincia<br />
-                            <strong>Teléfono:</strong> @scab.Telefono<br />
-                            <strong>Fecha:</strong> @scab.FCreacion.ToShortDateString()<br />
-                        </p>
-                    </div>
-                    <div class="card-footer d-flex flex-column">
-                        @if (scab.Estado < 1)
-                        {
-                            <a href="/pedidos?peticion=@scab.Peticion" class="btn btn-sm btn-primary w-100 mb-1">Hacer Pedido</a>
-                            <button class="btn btn-sm btn-outline-danger w-100" @onclick="() => EliminarPeticion(scab.Peticion)">Eliminar</button>
-                        }
-                        @if (scab.Estado == 1)
-                        {
-                            <button class="btn btn-sm btn-success w-100 mb-1" @onclick="() => AsignarStock(scab.Peticion)">Solicitar Stock</button>
-                            <a href="/edit?peticion=@scab.Peticion" class="btn btn-sm btn-warning w-100 mb-1">Editar Pedido</a>
-                            <button class="btn btn-sm btn-outline-danger w-100" @onclick="() => EliminarPeticion(scab.Peticion)">Eliminar</button>
-                        }
+    <!-- Barra de búsqueda y botón -->
+    <div class="d-flex flex-column flex-md-row gap-3 mb-4">
+        <div class="flex-grow-1">
+            <input @bind="filtroPeticion"
+                   class="form-control"
+                   placeholder="Buscar por pedido..."
+                   @oninput="OnFiltroChanged" />
+        </div>
+        <a href="/salidacab/create" class="btn btn-success d-flex align-items-center gap-2">
+            <i class="bi bi-plus-circle"></i> Crear Nueva Salida
+        </a>
+    </div>
+
+    @if (salidaCab == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else if (salidaCab.Length == 0)
+    {
+        <div class="alert alert-info text-center" role="alert">
+            No hay cabeceras creadas
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var scab in peticionesFiltradas)
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Pedido #@scab.Peticion</h5>
+                            <span class="badge @(scab.Estado == 1 ? "bg-info" : scab.Estado == 3 ? "bg-success" : "bg-secondary")">
+                                @scab.Estado - @scab.DesEstado
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text small text-muted">
+                                <i class="bi bi-person-circle me-2 text-primary"></i>
+                                <strong>Cliente:</strong> @scab.NombreCliente
+                            </p>
+                            <p class="card-text small text-muted">
+                                <i class="bi bi-geo-alt-fill me-2 text-primary"></i>
+                                <strong>Dirección:</strong> @scab.DireccionEntrega
+                            </p>
+                            <p class="card-text small text-muted">
+                                <i class="bi bi-postcard-fill me-2 text-primary"></i>
+                                <strong>CP/Población:</strong> @scab.CodigoPostal, @scab.Poblacion
+                            </p>
+                            <p class="card-text small text-muted">
+                                <i class="bi bi-geo me-2 text-primary"></i>
+                                <strong>Provincia:</strong> @scab.Provincia
+                            </p>
+                            <p class="card-text small text-muted">
+                                <i class="bi bi-telephone-fill me-2 text-primary"></i>
+                                <strong>Teléfono:</strong> @scab.Telefono
+                            </p>
+                            <p class="card-text small text-muted">
+                                <i class="bi bi-calendar-event me-2 text-primary"></i>
+                                <strong>Fecha:</strong> @scab.FCreacion.ToShortDateString()
+                            </p>
+                        </div>
+                        <div class "card-footer bg-white">
+                            @if (scab.Estado < 1)
+                            {
+                                <div class="d-grid gap-2">
+                                    <a href="/pedidos?peticion=@scab.Peticion" class="btn btn-primary">
+                                        <i class="bi bi-check-circle"></i> Hacer Pedido
+                                    </a>
+                                    <button class="btn btn-outline-danger" @onclick="() => EliminarPeticion(scab.Peticion)">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                </div>
+                            }
+                            @if (scab.Estado == 1)
+                            {
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-success" @onclick="() => AsignarStock(scab.Peticion)">
+                                        <i class="bi bi-box-seam"></i> Solicitar Stock
+                                    </button>
+                                    <a href="/edit?peticion=@scab.Peticion" class="btn btn-warning">
+                                        <i class="bi bi-pencil"></i> Editar Pedido
+                                    </a>
+                                    <button class="btn btn-outline-danger" @onclick="() => EliminarPeticion(scab.Peticion)">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
-            </div>
-        }
-    </div>
-}
+            }
+        </div>
+    }
+</div>
 
 @code {
     private VistaOrdenSalidaCab[]? salidaCab;
@@ -84,25 +128,9 @@ else
     {
         if (salidaCab == null) return;
 
-        if (string.IsNullOrWhiteSpace(filtroPeticion))
-        {
-            peticionesFiltradas = salidaCab;
-        }
-        else
-        {
-            peticionesFiltradas = salidaCab
-                .Where(p => p.Peticion.ToString().Contains(filtroPeticion, StringComparison.OrdinalIgnoreCase))
-                .ToArray();
-        }
-    }
-
-    private void OrdenSalida(OrdenSalidaCab salida)
-    {
-        if (salida.Estado != 1)
-        {
-            salida.Estado = 1;
-            _ = Http.PutAsJsonAsync($"api/ordensalidacab={salida.Peticion}", salida);
-        }
+        peticionesFiltradas = string.IsNullOrWhiteSpace(filtroPeticion)
+            ? salidaCab
+            : salidaCab.Where(p => p.Peticion.ToString().Contains(filtroPeticion, StringComparison.OrdinalIgnoreCase)).ToArray();
     }
 
     private async Task EliminarPeticion(int peticion)

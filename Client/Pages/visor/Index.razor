@@ -3,45 +3,81 @@
 @inject HttpClient Http
 @inject AuthenticationStateProvider Authe
 
-<h3>Historial Completo de Pedidos (Log)</h3>
+<div class="container py-4">
+    <h1 class="mb-4">Historial Completo de Pedidos (Log)</h1>
 
-<div class="mb-3">
-    <input @bind="filtroTexto" @bind:event="oninput" class="form-control" placeholder="Filtrar por petición o referencia..." />
-</div>
+    <div class="mb-4">
+        <div class="input-group">
+            <span class="input-group-text">
+                <i class="bi bi-search text-muted"></i>
+            </span>
+            <input @bind="filtroTexto"
+                   @bind:event="oninput"
+                   class="form-control"
+                   placeholder="Filtrar por petición o referencia..." />
+        </div>
+    </div>
 
-@if (allLogs == null)
-{
-    <p>Cargando...</p>
-}
-else if (!logsFiltrados.Any())
-{
-    <p>No hay registros que coincidan con el filtro.</p>
-}
-else
-{
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        @foreach (var log in logsFiltrados)
-        {
-            <div class="col">
-                <div class="card h-100 shadow-sm">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Petición #@log.Peticion</h5>
-                        <small class="text-muted">@log.FechaVerificacion.ToString("g")</small>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text">
-                            <strong>Usuario: </strong><span class="badge bg-info">@log.NombreUsuario</span><br />
-                            <strong>Referencia:</strong> @log.Referencia<br />
-                            <strong>Palet Retirado:</strong> @log.PaletRetirada<br />
-                            <strong>Palet Generado:</strong> @log.Palet<br />
-                            <strong>Cantidad:</strong> <span class="badge bg-danger">@log.CantidadQuitada</span>
-                        </p>
+    @if (allLogs == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else if (!logsFiltrados.Any())
+    {
+        <div class="alert alert-info text-center" role="alert">
+            <i class="bi bi-inbox me-2"></i>No hay registros que coincidan con el filtro.
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var log in logsFiltrados)
+            {
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm border-0">
+                        <div class="card-header bg-light py-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Petición <span class="text-primary fw-bold">#@log.Peticion</span></h5>
+                                <span class="badge bg-secondary">@log.FechaVerificacion</span>
+                            </div>
+                            <small class="text-muted">@log.FechaVerificacion.ToString("g")</small>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled small text-muted">
+                                <li class="mb-2">
+                                    <i class="bi bi-person-circle text-primary me-2"></i>
+                                    <strong>Usuario:</strong>
+                                    <span class="badge bg-info ms-1">@log.NombreUsuario</span>
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-tag-fill text-secondary me-2"></i>
+                                    <strong>Referencia:</strong> @log.Referencia
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-box-seam text-warning me-2"></i>
+                                    <strong>Palet Retirado:</strong> @log.PaletRetirada
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-box-arrow-up text-success me-2"></i>
+                                    <strong>Palet Generado:</strong> @log.Palet
+                                </li>
+                                <li class="mb-0">
+                                    <i class="bi bi-clipboard2-check text-danger me-2"></i>
+                                    <strong>Cantidad procesada:</strong>
+                                    <span class="badge bg-danger ms-1">@log.CantidadQuitada</span>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
-            </div>
-        }
-    </div>
-}
+            }
+        </div>
+    }
+</div>
 
 @code {
     private List<PickingLogs>? allLogs;
@@ -56,9 +92,6 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-
         allLogs = await Http.GetFromJsonAsync<List<PickingLogs>>("api/icp/log");
     }
-
-
 }

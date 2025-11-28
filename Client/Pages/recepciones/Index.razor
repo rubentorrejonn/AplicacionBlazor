@@ -4,82 +4,100 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
 
-<h3>Recepciones</h3>
+<div class="container py-4">
+    <h1 class="mb-4">Recepciones</h1>
 
-<div class="mb-3">
-    <input @bind="filtroAlbaran"
-    class="form-control"
-    placeholder="Buscar por albarán o estado..."
-    @oninput="OnFiltroChanged" />
-</div>
+    <div class="mb-3">
+        <input @bind="filtroAlbaran"
+        class="form-control"
+        placeholder="Buscar por albarán o estado..."
+        @oninput="OnFiltroChanged" />
+    </div>
 
-<a href="/recepciones/create" class="btn btn-success mb-3">Crear Nueva Recepción</a>
+    <a href="/recepciones/create" class="btn btn-success mb-4">
+        <i class="bi bi-plus-circle me-1"></i>Crear Nueva Recepción
+    </a>
 
-@if (cabeceras == null)
-{
-    <p>Cargando...</p>
-}
-else if (AlbaranesFiltrados.Length == 0)
-{
-    <p>No hay recepciones creadas.</p>
-}
-else
-{
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-        @foreach (var cab in AlbaranesFiltrados)
-        {
-            bool bloqueado = cab.Estado >= 2;
-            bool bloquearEdit = cab.Estado != 2;
-            bool bloquearICP = cab.Estado == 3 || cab.Estado == 4 || cab.Estado == 0;
+    @if (cabeceras == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
+    }
+    else if (AlbaranesFiltrados.Length == 0)
+    {
+        <div class="alert alert-info text-center" role="alert">
+            <i class="bi bi-inbox me-2"></i>No hay recepciones creadas.
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var cab in AlbaranesFiltrados)
+            {
+                bool bloqueado = cab.Estado >= 2;
+                bool bloquearEdit = cab.Estado != 2;
+                bool bloquearICP = cab.Estado == 3 || cab.Estado == 4 || cab.Estado == 0;
 
-            <div class="col">
-                <div class="card h-100 shadow-sm border-1">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Albarán # @cab.Albaran</h5>
-                        <span class="badge @GetEstadoBadgeClass(cab.Estado)">
-                            @cab.Estado - @cab.DesEstado
-                        </span>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text"><strong>Proveedor:</strong> @cab.Proveedor</p>
-                        <p class="card-text"><strong>Fecha de Creación:</strong> @cab.FCreacion</p>
-                    </div>
-                    <div class="card-footer d-flex flex-wrap gap-2">
-                        @if (cab.Estado < 2)
-                        {
-                            <button class="btn btn-sm btn-outline-secondary flex-fill"
-                            @onclick="() => Recepcionar(cab)"
-                            disabled="@bloqueado">
-                                <i class="bi bi-box-seam me-1"></i>Recepcionar
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger flex-fill"
-                            @onclick="() => Eliminar(cab.Albaran)"
-                            disabled="@bloqueado">
-                                <i class="bi bi-trash me-1"></i>Eliminar
-                            </button>
-                        }
-                        else if (cab.Estado == 2)
-                        {
-                            <a class="btn btn-sm btn-outline-primary flex-fill @(bloquearEdit ? "disabled" : "")"
-                            href="/recepciones/edit/@cab.Albaran">
-                                <i class="bi bi-pencil me-1"></i>Editar
-                            </a>
-                            <button class="btn btn-sm btn-outline-warning flex-fill"
-                            @onclick="() => EnviarAICP(cab)"
-                            disabled="@bloquearICP">
-                                <i class="bi bi-send me-1"></i>Enviar a ICP
-                            </button>
-                        }
-                        else if (cab.Estado > 3)
-                        {
-                            <span class="text-muted fst-italic w-100 text-center">Recepción completada</span>
-                        }
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Albarán <span class="text-primary"># @cab.Albaran</span></h5>
+                            <span class="badge @GetEstadoBadgeClass(cab.Estado)">
+                                @cab.DesEstado
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled small text-muted">
+                                <li class="mb-2">
+                                    <i class="bi bi-building me-2 text-primary"></i>
+                                    <strong>Proveedor:</strong> @cab.Proveedor
+                                </li>
+                                <li class="mb-2">
+                                    <i class="bi bi-calendar-event me-2 text-muted"></i>
+                                    <strong>Fecha:</strong> @cab.FCreacion.ToShortDateString()
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-footer bg-white">
+                            @if (cab.Estado < 2)
+                            {
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-outline-secondary" @onclick="() => Recepcionar(cab)" disabled="@bloqueado">
+                                        <i class="bi bi-box-seam me-1"></i>Recepcionar
+                                    </button>
+                                    <button class="btn btn-outline-danger" @onclick="() => Eliminar(cab.Albaran)" disabled="@bloqueado">
+                                        <i class="bi bi-trash me-1"></i>Eliminar
+                                    </button>
+                                </div>
+                            }
+                            else if (cab.Estado == 2)
+                            {
+                                <div class="d-grid gap-2">
+                                    <a class="btn btn-outline-primary @(bloquearEdit ? "disabled" : "")" href="/recepciones/edit/@cab.Albaran">
+                                        <i class="bi bi-pencil me-1"></i>Editar
+                                    </a>
+                                    <button class="btn btn-outline-warning" @onclick="() => EnviarAICP(cab)" disabled="@bloquearICP">
+                                        <i class="bi bi-send me-1"></i>Enviar a ICP
+                                    </button>
+                                </div>
+                            }
+                            else if (cab.Estado > 3)
+                            {
+                                <div class="text-center">
+                                    <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                                    <p class="mt-2 mb-0 text-success">Recepción completada</p>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
-            </div>
-        }
-    </div>
-}
+            }
+        </div>
+    }
+</div>
 
 @code {
     private RecepcionesCab[]? cabeceras;
@@ -89,6 +107,10 @@ else
     protected override async Task OnInitializedAsync()
     {
         cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+        if(cabeceras is not null)
+        {
+            cabeceras = cabeceras.OrderByDescending(r => r.FCreacion).ToArray();
+        }
         AplicarFiltro();
     }
 
@@ -100,30 +122,37 @@ else
 
     private void AplicarFiltro()
     {
-        if (cabeceras is null) return;
+        if (cabeceras == null) return;
 
-        if (string.IsNullOrWhiteSpace(filtroAlbaran))
-        {
-            AlbaranesFiltrados = cabeceras;
-        }
-        else
-        {
-            AlbaranesFiltrados = cabeceras
-                .Where(r => r.Albaran.ToString().Contains(filtroAlbaran, StringComparison.OrdinalIgnoreCase) ||
-                        r.DesEstado.ToString().Contains(filtroAlbaran, StringComparison.OrdinalIgnoreCase))
+        AlbaranesFiltrados = string.IsNullOrWhiteSpace(filtroAlbaran)
+            ? cabeceras
+            : cabeceras.Where(r =>
+                    r.Albaran.ToString().Contains(filtroAlbaran, StringComparison.OrdinalIgnoreCase) ||
+                    r.DesEstado.Contains(filtroAlbaran, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(r => r.FCreacion)
                 .ToArray();
-        }
     }
 
-    private void Recepcionar(RecepcionesCab cab)
+    private async Task Recepcionar(RecepcionesCab cab)
     {
-        if (cab.Estado != 1)
+        cab.Estado = 1;
+        cab.DesEstado = "Sin Liberar";
+        try
         {
-            cab.Estado = 1;
-            cab.DesEstado = "SinLiberar";
-            _ = Http.PutAsJsonAsync($"api/RecepcionesCab/{cab.Albaran}", cab);
+            await Http.PutAsJsonAsync($"api/RecepcionesCab/{cab.Albaran}", cab);
+
+            // Actualizar la lista local
+            cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
+            AplicarFiltro();
+            StateHasChanged();
+
+            // Navegar a la página de líneas
+            Nav.NavigateTo($"/recepcioneslin?albaran={cab.Albaran}");
         }
-        Nav.NavigateTo($"/recepcioneslin?albaran={cab.Albaran}");
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error al iniciar la recepción: {ex.Message}");
+        }
     }
 
     private async Task Eliminar(int albaran)
@@ -140,11 +169,8 @@ else
     private async Task EnviarAICP(RecepcionesCab cab)
     {
         cab.Estado = 3;
-        cab.DesEstado = "Enviado";
-
+        cab.DesEstado = "Enviado a ICP";
         await Http.PutAsJsonAsync($"api/RecepcionesCab/{cab.Albaran}", cab);
-
-        // Refrescar la lista
         cabeceras = await Http.GetFromJsonAsync<RecepcionesCab[]>("api/RecepcionesCab");
         StateHasChanged();
     }

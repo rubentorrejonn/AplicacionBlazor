@@ -5,66 +5,86 @@
 @inject HttpClient Http
 @inject NavigationManager Nav
 
-<h3>Inventario Disponible</h3>
+<div class="container py-4">
+    <h1 class="mb-4">Inventario Disponible</h1>
 
-<div class="mb-3">
-    <input @bind="filtroReferencia"
-           class="form-control"
-           placeholder="Buscar por referencia o descripción..."
-           @oninput="OnFiltroChanged" />
-</div>
+    <div class="mb-4">
+        <input @bind="filtroReferencia"
+               class="form-control"
+               placeholder="Buscar por referencia o descripción..."
+               @oninput="OnFiltroChanged" />
+    </div>
 
-@if (referencias == null)
-{
-    <p>Cargando...</p>
-}
-else
-{
-    @if (!referenciasFiltradas?.Any(refe => SalidasService.StockDisponible.GetValueOrDefault(refe.Referencia, 0) > 0) ?? true)
+    @if (referencias == null)
     {
-        <p>No hay productos con stock disponible que coincidan con el filtro.</p>
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+        </div>
     }
     else
     {
-        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-            @foreach (var refe in referenciasFiltradas)
-            {
-                var stock = SalidasService.StockDisponible.GetValueOrDefault(refe.Referencia, 0);
-
-                if (stock > 0)
+        @if (!referenciasFiltradas?.Any(refe => SalidasService.StockDisponible.GetValueOrDefault(refe.Referencia, 0) > 0) ?? true)
+        {
+            <div class="alert alert-info text-center" role="alert">
+                <i class="bi bi-inbox me-2"></i>No hay productos con stock disponible que coincidan con el filtro.
+            </div>
+        }
+        else
+        {
+            <div class="row g-4">
+                @foreach (var refe in referenciasFiltradas)
                 {
-                    <div class="col">
-                        <div class="card h-100 shadow-sm @(stock < 10 ? "border-warning" : "border-success")">
-                            <div class="card-body d-flex flex-column">
-                                <h5 class="card-title text-primary">@refe.Referencia</h5>
-                                <p class="card-text flex-grow-1">
-                                    <small class="text-muted">@refe.DesReferencia</small><br />
-                                </p>
-                                <div class="mt-auto">
-                                    <strong>Stock Disponible:</strong>
-                                    <span class="badge @(stock < 10 ? "bg-warning text-dark" : "bg-success")">
-                                        @stock unidades
-                                    </span>
+                    var stock = SalidasService.StockDisponible.GetValueOrDefault(refe.Referencia, 0);
+
+                    if (stock >= 0) // Mostrar incluso si es 0
+                    {
+                        var borderColor = stock == 0 ? "border-danger" : stock < 10 ? "border-warning" : "border-success";
+                        var badgeColor = stock == 0 ? "bg-danger" : stock < 10 ? "bg-warning text-dark" : "bg-success";
+
+                        <div class="col-12 col-md-6 col-lg-4">
+                            <div class="card h-100 shadow-sm @borderColor">
+                                <div class="card-body d-flex flex-column">
+                                    <h5 class="card-title text-primary">@refe.Referencia</h5>
+                                    <p class="card-text text-muted small flex-grow-1">
+                                        @refe.DesReferencia
+                                    </p>
+                                    <div class="mt-auto">
+                                        <i class="bi bi-box-seam me-1 text-muted"></i>
+                                        <strong>Stock:</strong>
+                                        <span class="badge @badgeColor ms-1">
+                                            @stock unidad@(stock != 1 ? "es" : "")
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-white">
+                                    @if (stock > 0)
+                                    {
+                                        <button class="btn btn-outline-success btn-sm w-100" disabled>
+                                            <i class="bi bi-check-circle me-1"></i>Stock
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-outline-secondary btn-sm w-100" disabled>
+                                            <i class="bi bi-x-circle me-1"></i>Sin stock
+                                        </button>
+                                    }
                                 </div>
                             </div>
-                            <div class="card-footer">
-                                <a href="#" class="btn btn-outline-primary btn-sm w-100" @onclick:preventDefault>
-                                    Gestionar Pedido
-                                </a>
-                            </div>
                         </div>
-                    </div>
+                    }
                 }
-            }
-        </div>
+            </div>
+        }
     }
-}
+</div>
 
 @code {
     private Referencias[]? referencias;
     private string filtroReferencia = "";
     private Referencias[]? referenciasFiltradas;
-
 
     protected override async Task OnInitializedAsync()
     {
@@ -86,16 +106,11 @@ else
     {
         if (referencias == null) return;
 
-        if (string.IsNullOrWhiteSpace(filtroReferencia))
-        {
-            referenciasFiltradas = referencias;
-        }
-        else
-        {
-            referenciasFiltradas = referencias
-                .Where(r => r.Referencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase) ||
-                            r.DesReferencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase))
+        referenciasFiltradas = string.IsNullOrWhiteSpace(filtroReferencia)
+            ? referencias
+            : referencias.Where(r =>
+                    r.Referencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase) ||
+                    r.DesReferencia.Contains(filtroReferencia, StringComparison.OrdinalIgnoreCase))
                 .ToArray();
-        }
     }
 }
